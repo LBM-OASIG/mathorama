@@ -161,12 +161,35 @@ export const useChatStore = create<ChatState>((set, get) => {
         const resolvedProvider = provider || state.selectedProvider || 'openai'
         const resolvedModel = model || state.selectedModel || 'gpt-4'
 
+        // Subscribe to streaming tokens before calling agent.run
+        const unsubscribe = window.mathorama.onStreamToken((token: string) => {
+          set((s) => ({
+            conversations: s.conversations.map((c) => {
+              if (c.id === convId) {
+                return {
+                  ...c,
+                  messages: c.messages.map((m) =>
+                    m.id === assistantMessage.id
+                      ? { ...m, content: m.content + token, status: 'streaming' as const }
+                      : m
+                  ),
+                  updatedAt: Date.now()
+                }
+              }
+              return c
+            })
+          }))
+        })
+
         // Call the agent loop via preload bridge
         const response = await window.mathorama.agent.run({
           provider: resolvedProvider,
           model: resolvedModel,
           messages: apiMessages
         })
+
+        // Unsubscribe from streaming
+        unsubscribe()
 
         // Extract images from trace (tool "plot" results that are base64)
         const images: string[] = []
@@ -178,7 +201,7 @@ export const useChatStore = create<ChatState>((set, get) => {
           }
         }
 
-        // Update assistant message with content, trace, and images
+        // Update assistant message with final content, trace, and images
         set((s) => ({
           conversations: s.conversations.map((c) => {
             if (c.id === convId) {
@@ -188,7 +211,7 @@ export const useChatStore = create<ChatState>((set, get) => {
                   m.id === assistantMessage.id
                     ? {
                         ...m,
-                        content: response.content,
+                        content: response.content || m.content,
                         trace: (response.trace as ToolTrace[]) || [],
                         images: images.length > 0 ? images : undefined,
                         status: 'done' as const

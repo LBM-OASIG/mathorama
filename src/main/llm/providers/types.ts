@@ -19,6 +19,7 @@ export interface LLMChatParams {
     }
   }>
   stream?: boolean
+  onToken?: (token: string) => void
   temperature?: number
   maxTokens?: number
 }

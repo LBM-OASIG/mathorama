@@ -42,6 +42,7 @@ interface MathoramaAPI {
       messages: Array<{ role: string; content: string }>
     }) => Promise<{ content: string; trace: Array<{ tool: string; args: Record<string, unknown>; result: string }> }>
   }
+  onStreamToken: (callback: (token: string) => void) => () => void
   conversations: {
     loadAll: () => Promise<unknown[]>
     saveAll: (conversations: unknown[]) => Promise<void>

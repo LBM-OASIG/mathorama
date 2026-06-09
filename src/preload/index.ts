@@ -32,6 +32,11 @@ const api = {
     run: (params: { provider: string; model: string; messages: Array<{ role: string; content: string }> }) =>
       ipcRenderer.invoke('agent:run', params)
   },
+  onStreamToken: (callback: (token: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, token: string) => callback(token)
+    ipcRenderer.on('agent:stream-token', handler)
+    return () => ipcRenderer.removeListener('agent:stream-token', handler)
+  },
   conversations: {
     loadAll: () => ipcRenderer.invoke('conversations:loadAll'),
     saveAll: (conversations: unknown[]) => ipcRenderer.invoke('conversations:saveAll', conversations)

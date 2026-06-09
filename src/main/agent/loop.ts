@@ -37,6 +37,7 @@ export async function runAgent(params: {
   provider: string
   model: string
   messages: Array<{ role: string; content: string }>
+  onToken?: (token: string) => void
 }): Promise<AgentResult> {
   const trace: ToolTrace[] = []
 
@@ -50,7 +51,9 @@ export async function runAgent(params: {
       model: params.model,
       messages: msgs,
       tools: getOpenAITools(),
-      tool_choice: 'auto'
+      tool_choice: 'auto',
+      stream: true,
+      onToken: params.onToken
     })
 
     if (response.tool_calls && response.tool_calls.length > 0) {
