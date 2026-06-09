@@ -14,6 +14,21 @@ function scheduleSave(conversations: Conversation[]): void {
   }, 500)
 }
 
+/** Decide how many chars to consume from the buffer:
+ *  - Complete $$...$$ or $...$ block → whole block at once
+ *  - Otherwise → up to 3 chars (English letters group faster)
+ */
+function getChunkSize(buffer: string): number {
+  // Display math $$...$$
+  const displayMatch = buffer.match(/^\$\$[\s\S]*?\$\$/)
+  if (displayMatch) return Math.max(displayMatch[0].length, 1)
+  // Inline math $...$ (but not $$ which is already handled above)
+  const inlineMatch = buffer.match(/^\$[^$]*?\$/)
+  if (inlineMatch) return Math.max(inlineMatch[0].length, 1)
+  // Default: up to 3 chars
+  return Math.min(3, buffer.length)
+}
+
 function createNewConversation(title?: string): Conversation {
   const now = Date.now()
   return {
@@ -183,18 +198,16 @@ export const useChatStore = create<ChatState>((set, get) => {
 
         // Keep track of which conversation these tokens belong to
         const thisConvId = convId
+        let streamingStarted = false
         const unsubscribe = window.mathorama.onStreamToken((data: { convId: string; token: string }) => {
           // Only accept tokens for this conversation — prevents cross-conversation mixing
           if (data.convId !== thisConvId) return
           charBuffer += data.token
           fullStreamedContent += data.token  // Full record, never lost
-        })
 
-        // Reveal one character at a time from the buffer
-        charInterval = setInterval(() => {
-          if (charBuffer.length > 0) {
-            const char = charBuffer[0]
-            charBuffer = charBuffer.slice(1)
+          // Switch to streaming status on first token, so UI hides "..." ASAP
+          if (!streamingStarted) {
+            streamingStarted = true
             set((s) => ({
               conversations: s.conversations.map((c) => {
                 if (c.id === convId) {
@@ -202,7 +215,7 @@ export const useChatStore = create<ChatState>((set, get) => {
                     ...c,
                     messages: c.messages.map((m) =>
                       m.id === assistantMessage.id
-                        ? { ...m, content: m.content + char, status: 'streaming' as const }
+                        ? { ...m, status: 'streaming' as const }
                         : m
                     ),
                     updatedAt: Date.now()
@@ -212,7 +225,32 @@ export const useChatStore = create<ChatState>((set, get) => {
               })
             }))
           }
-        }, 15)  // ~67 chars per second
+        })
+
+        // Reveal chunks from the buffer (LaTeX blocks whole, else 3 chars at a time)
+        charInterval = setInterval(() => {
+          if (charBuffer.length > 0) {
+            const chunkSize = getChunkSize(charBuffer)
+            const chunk = charBuffer.slice(0, chunkSize)
+            charBuffer = charBuffer.slice(chunkSize)
+            set((s) => ({
+              conversations: s.conversations.map((c) => {
+                if (c.id === convId) {
+                  return {
+                    ...c,
+                    messages: c.messages.map((m) =>
+                      m.id === assistantMessage.id
+                        ? { ...m, content: m.content + chunk, status: 'streaming' as const }
+                        : m
+                    ),
+                    updatedAt: Date.now()
+                  }
+                }
+                return c
+              })
+            }))
+          }
+        }, 15)
 
         // Call the agent loop via preload bridge
         const response = await window.mathorama.agent.run({
