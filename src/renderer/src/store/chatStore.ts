@@ -164,12 +164,12 @@ export const useChatStore = create<ChatState>((set, get) => {
             content: m.content
           }))
 
-        // Resolve agent from current selection, with optional provider/model override
+        // Resolve agent — dropdown overrides agent defaults
         const currentAgent = state.agents.find(a => a.name === state.selectedAgentName) || state.agents[0]
         const agentForCall = {
           name: currentAgent.name,
-          provider: provider || currentAgent.provider,
-          model: model || currentAgent.model,
+          provider: provider || state.selectedProvider || currentAgent.provider,
+          model: model || state.selectedModel || currentAgent.model,
           system_prompt: currentAgent.system_prompt,
           params: currentAgent.params as Record<string, unknown>,
           tools: currentAgent.tools
