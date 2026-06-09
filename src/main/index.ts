@@ -8,12 +8,18 @@ import { registerAgentManagerHandlers } from './agent/manager'
 import { registerConversationHandlers } from './conversations/bridge'
 
 function createWindow(): void {
+  // Resolve icon path: in dev (out/main/) → ../../icon.png; packaged → app dir
+  const iconPath = app.isPackaged
+    ? join(process.resourcesPath, 'icon.png')
+    : join(__dirname, '../../icon.png')
+
   const mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1000,
     minHeight: 600,
     titleBarStyle: 'hiddenInset',
+    icon: iconPath,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
