@@ -165,34 +165,46 @@ export default function ChatPanel(): JSX.Element {
 
 // ── Markdown Renderer ─────────────────────────────────────
 
+/** Apply a regex replacement only on text outside existing $$...$$ / $...$ math blocks */
+function processOutsideMath(
+  text: string,
+  pattern: RegExp,
+  replacement: string | ((match: string, ...args: unknown[]) => string)
+): string {
+  // Split by existing math blocks, keeping delimiters: $$...$$ first, then $...$
+  const mathRegex = /(\$\$[\s\S]*?\$\$|\$[^\$]*?\$)/g
+  const parts = text.split(mathRegex)
+  return parts.map((part, i) => {
+    if (i % 2 === 1) return part // odd indices = inside math block, skip
+    if (typeof replacement === 'string') {
+      return part.replace(pattern, replacement)
+    }
+    return part.replace(pattern, replacement)
+  }).join('')
+}
+
 /** Convert non-dollar LaTeX delimiters to standard $$...$$ and $...$ */
 function preprocessLatex(text: string): string {
   let result = text
   // Single $ on its own line → $$...$$ (display)
-  // Note: in .replace(), $$ in replacement = literal $, so $$$$ → $$
-  // Catches: \n$\n...\n$\n where $ is the only char on the line
-  result = result.replace(/\n\s*\$\s*\n([\s\S]*?)\n\s*\$\s*\n/g, '\n$$$$\n$1\n$$$$\n')
-  // Also handle $ at very start or end of string (no leading/trailing \n)
-  result = result.replace(/^\s*\$\s*\n([\s\S]*?)\n\s*\$\s*$/m, '$$$$\n$1\n$$$$')
-  result = result.replace(/^\s*\$\s*\n([\s\S]*?)\n\s*\$\s*\n/, '$$$$\n$1\n$$$$\n')
-  result = result.replace(/\n\s*\$\s*\n([\s\S]*?)\n\s*\$\s*$/, '\n$$$$\n$1\n$$$$')
-  // \ [ ... \ ] → $$ ... $$ (display)
-  result = result.replace(/\\\[([\s\S]*?)\\\]/g, '$$$$\n$1\n$$$$')
-  // \( ... \) → $ ... $ (inline)
-  result = result.replace(/\\\(([\s\S]*?)\\\)/g, '$$$1$$')
+  result = processOutsideMath(result, /\n\s*\$\s*\n([\s\S]*?)\n\s*\$\s*\n/g, '\n$$$$\n$1\n$$$$\n')
+  result = processOutsideMath(result, /^\s*\$\s*\n([\s\S]*?)\n\s*\$\s*$/m, '$$$$\n$1\n$$$$')
+  result = processOutsideMath(result, /^\s*\$\s*\n([\s\S]*?)\n\s*\$\s*\n/, '$$$$\n$1\n$$$$\n')
+  result = processOutsideMath(result, /\n\s*\$\s*\n([\s\S]*?)\n\s*\$\s*$/, '\n$$$$\n$1\n$$$$')
+  // \[...\] → $$...$$ (display)
+  result = processOutsideMath(result, /\\\[([\s\S]*?)\\\]/g, '$$$$\n$1\n$$$$')
+  // \(...\) → $...$ (inline)
+  result = processOutsideMath(result, /\\\(([\s\S]*?)\\\)/g, '$$$1$$')
   // \begin{equation}...\end{equation} → $$...$$
-  result = result.replace(/\\begin\{equation\}([\s\S]*?)\\end\{equation\}/g, '$$$$\n$1\n$$$$')
+  result = processOutsideMath(result, /\\begin\{equation\}([\s\S]*?)\\end\{equation\}/g, '$$$$\n$1\n$$$$')
   // \begin{align}...\end{align} → $$...$$
-  result = result.replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, '$$$$\n$1\n$$$$')
+  result = processOutsideMath(result, /\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, '$$$$\n$1\n$$$$')
   // \begin{aligned} / \begin{gathered} / \begin{split} → $$...$$
-  result = result.replace(/\\begin\{(aligned|gathered|split)\}([\s\S]*?)\\end\{\1\}/g, (_, env, content) => {
+  result = processOutsideMath(result, /\\begin\{(aligned|gathered|split)\}([\s\S]*?)\\end\{\1\}/g, (_, env, content) => {
     return '$$$$\n\\begin{' + env + '}' + content + '\\end{' + env + '}\n$$$$'
   })
   // \boxed{...} on its own line → $$ \boxed{...} $$  (greedy .* backtracks to last })
-  result = result.replace(/^(\s*)\\boxed\{(.*)\}(\s*)$/gm, '$1$$$$\n\\boxed{$2}\n$$$$$3')
-  // Orphan \] or \[ (after matched pairs are already converted) → $$
-  result = result.replace(/\\\]/g, '$$$$')
-  result = result.replace(/\\\[/g, '$$$$')
+  result = processOutsideMath(result, /^(\s*)\\boxed\{(.*)\}(\s*)$/gm, '$1$$$$\n\\boxed{$2}\n$$$$$3')
   return result
 }
 
