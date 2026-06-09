@@ -258,6 +258,9 @@ export default function AgentEditorDialog({ isOpen, onClose }: AgentEditorDialog
                       onChange={(e) => handleParam('max_tokens', e.target.value ? parseInt(e.target.value) : undefined)}
                       className="w-full rounded-sm border border-border-warm bg-paper px-3 py-1.5 font-mono text-[12px] text-ink focus:border-accent-light focus:outline-none"
                     />
+                    <p className="mt-1 font-mono text-[9px] text-ink-faint">
+                      GPT-4o: 16384 · DeepSeek: 8192 · o1/o3: use max_completion_tokens
+                    </p>
                   </Field>
                   <Field label="Top P">
                     <input
