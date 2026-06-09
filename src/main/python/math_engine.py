@@ -7,10 +7,6 @@ import io
 import json
 import sys
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import numpy as np
 from sympy import (Eq, N, diff, integrate, latex, simplify, solve,
                    symbols, sympify)
 
@@ -68,6 +64,11 @@ def tool_integrate(args: dict) -> str:
 
 
 def tool_plot(args: dict) -> str:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import numpy as np
+
     expr = args['expression']
     var_str = args['variable']
     var = symbols(var_str)
