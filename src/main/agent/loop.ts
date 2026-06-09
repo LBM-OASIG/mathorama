@@ -68,6 +68,11 @@ export async function runAgent(params: {
           content: resultStr
         })
       }
+    } else if (response.truncated && response.content) {
+      // Output was cut off by max_tokens — continue generation
+      msgs.push({ role: 'assistant', content: response.content })
+      msgs.push({ role: 'user', content: '请继续完成你的回答。' })
+      // Loop continues for another iteration
     } else {
       return {
         content: response.content ?? '',

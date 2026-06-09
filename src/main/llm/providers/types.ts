@@ -33,6 +33,8 @@ export interface LLMChatResult {
   /** Native reasoning chain, separate from content. */
   reasoning?: string
   tool_calls?: ToolCall[]
+  /** True when the model hit max_tokens and output was truncated. */
+  truncated?: boolean
 }
 
 export interface LLMProviderConfig {

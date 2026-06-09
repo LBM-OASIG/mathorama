@@ -13,6 +13,7 @@ interface OpenAIChoice {
       }
     }>
   }
+  finish_reason: string
 }
 
 interface OpenAIResponse {
@@ -73,6 +74,9 @@ export class OpenAIProvider implements LLMProvider {
     if (message.reasoning_content) {
       result.reasoning = message.reasoning_content
     }
+    if (data.choices[0].finish_reason === 'length') {
+      result.truncated = true
+    }
 
     if (message.tool_calls && message.tool_calls.length > 0) {
       result.tool_calls = message.tool_calls.map(tc => ({
@@ -119,6 +123,7 @@ export class OpenAIProvider implements LLMProvider {
     let buffer = ''
     let fullContent = ''
     let fullReasoning = ''
+    let truncated = false
     let toolCalls: Array<{ id: string; type: string; function: { name: string; arguments: string } }> | null = null
 
     while (true) {
@@ -138,7 +143,13 @@ export class OpenAIProvider implements LLMProvider {
 
         try {
           const chunk = JSON.parse(data)
-          const delta = chunk.choices?.[0]?.delta
+          const choice = chunk.choices?.[0]
+          const delta = choice?.delta
+
+          if (choice?.finish_reason === 'length') {
+            truncated = true
+          }
+
           if (!delta) continue
 
           if (delta.content) {
@@ -170,6 +181,7 @@ export class OpenAIProvider implements LLMProvider {
     const result: LLMChatResult = {}
     if (fullContent) result.content = fullContent
     if (fullReasoning) result.reasoning = fullReasoning
+    if (truncated) result.truncated = true
     if (toolCalls && toolCalls.length > 0 && toolCalls[0].id) {
       result.tool_calls = toolCalls
     }

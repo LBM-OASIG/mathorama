@@ -74,7 +74,7 @@ $$\\boxed{\\max f(x) = \\frac{13}{6}}$$
 
 最小值在 $$x = 2$$ 处取得：
 $$\\boxed{\\min f(x) = -\\frac{7}{3}}$$`,
-      params: { temperature: 0.3, max_tokens: 4096 },
+      params: { temperature: 0.3, max_tokens: 16384 },
       tools: ['evaluate_expression', 'solve_equation', 'simplify', 'differentiate', 'integrate', 'plot']
     },
     {
@@ -83,7 +83,7 @@ $$\\boxed{\\min f(x) = -\\frac{7}{3}}$$`,
       provider: 'openai',
       model: 'gpt-4o',
       system_prompt: 'You are a helpful and concise assistant.',
-      params: { temperature: 0.7, max_tokens: 2048 },
+      params: { temperature: 0.7, max_tokens: 4096 },
       tools: []
     },
     {
