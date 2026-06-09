@@ -77,6 +77,39 @@ function ConversationList(): JSX.Element {
   )
 }
 
+// ── Agent Selector ────────────────────────────────────────
+
+function AgentSelector(): JSX.Element {
+  const agents = useChatStore((s) => s.agents)
+  const selectedAgentName = useChatStore((s) => s.selectedAgentName)
+  const selectAgent = useChatStore((s) => s.selectAgent)
+
+  return (
+    <div className="relative">
+      <select
+        value={selectedAgentName}
+        onChange={(e) => selectAgent(e.target.value)}
+        className="appearance-none rounded-sm border border-border-warm bg-surface px-3 py-1.5 pr-8 font-body text-[12px] text-ink-soft focus:border-accent-light focus:outline-none max-w-[180px] truncate cursor-pointer"
+      >
+        {agents.map((agent) => (
+          <option key={agent.name} value={agent.name}>
+            {agent.name}
+          </option>
+        ))}
+      </select>
+      <svg
+        className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-ink-faint"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      </svg>
+    </div>
+  )
+}
+
 // ── Model Selector ────────────────────────────────────────
 
 function ModelSelector(): JSX.Element {
@@ -176,6 +209,11 @@ export default function Layout(): JSX.Element {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Agent selector */}
+          <AgentSelector />
+
+          <div className="h-4 w-px bg-border" />
+
           {/* Model selector */}
           <ModelSelector />
 
