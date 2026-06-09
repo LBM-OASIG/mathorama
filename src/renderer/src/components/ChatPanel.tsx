@@ -300,6 +300,67 @@ function MarkdownRenderer({ content, isUser }: { content: string; isUser: boolea
   )
 }
 
+// ── Split Thinking / Answer ───────────────────────────────
+
+function splitThinkingAnswer(content: string): { thinking: string | null; answer: string | null } {
+  // Match content after "## Thinking" until "## Answer" or end
+  const thinkingMatch = content.match(/^##\s*Thinking\s*\n([\s\S]*?)(?=\n##\s*Answer\s*\n|$)/m)
+  // Match content after "## Answer"
+  const answerMatch = content.match(/^##\s*Answer\s*\n([\s\S]*?)$/m)
+  return {
+    thinking: thinkingMatch ? thinkingMatch[1].trim() : null,
+    answer: answerMatch ? answerMatch[1].trim() : null,
+  }
+}
+
+function ThinkingAnswerRenderer({ content, isUser }: { content: string; isUser: boolean }): JSX.Element {
+  const { thinking, answer } = splitThinkingAnswer(content)
+
+  // No thinking/answer structure found — render normally
+  if (!thinking && !answer) {
+    return <MarkdownRenderer content={content} isUser={isUser} />
+  }
+
+  return (
+    <>
+      {/* Thinking section — collapsible, always collapsed by default */}
+      {thinking && (
+        <details className="group mb-4">
+          <summary className="flex cursor-pointer select-none items-center gap-2 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-faint hover:text-ink-muted transition-colors">
+            <svg
+              className="h-3 w-3 transition-transform group-open:rotate-90"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+            Reasoning
+          </summary>
+          <div className="mt-2 border-l-2 border-accent/15 pl-4">
+            <div className="text-[13px] leading-relaxed text-ink-muted">
+              <MarkdownRenderer content={thinking} isUser={isUser} />
+            </div>
+          </div>
+        </details>
+      )}
+
+      {/* Answer section — main content */}
+      {answer && (
+        <div className="font-body text-[14px] leading-relaxed">
+          <MarkdownRenderer content={answer} isUser={isUser} />
+        </div>
+      )}
+
+      {/* Still thinking (no answer marker yet) — show raw */}
+      {!answer && (
+        <MarkdownRenderer content={content} isUser={isUser} />
+      )}
+    </>
+  )
+}
+
 // ── Message Bubble ────────────────────────────────────────
 
 function MessageBubble({ message, index }: { message: Message; index: number }): JSX.Element {
@@ -345,7 +406,11 @@ function MessageBubble({ message, index }: { message: Message; index: number }):
           {/* Content */}
           <div className="font-body text-[14px] leading-relaxed">
             {message.content ? (
-              <MarkdownRenderer content={message.content} isUser={isUser} />
+              isUser || isStreaming ? (
+                <MarkdownRenderer content={message.content} isUser={isUser} />
+              ) : (
+                <ThinkingAnswerRenderer content={message.content} isUser={false} />
+              )
             ) : isStreaming ? null : (
               '...'
             )}
