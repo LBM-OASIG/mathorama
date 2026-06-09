@@ -184,6 +184,15 @@ function preprocessLatex(text: string): string {
   result = result.replace(/\\begin\{equation\}([\s\S]*?)\\end\{equation\}/g, '$$$$\n$1\n$$$$')
   // \begin{align}...\end{align} → $$...$$
   result = result.replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, '$$$$\n$1\n$$$$')
+  // \begin{aligned} / \begin{gathered} / \begin{split} → $$...$$
+  result = result.replace(/\\begin\{(aligned|gathered|split)\}([\s\S]*?)\\end\{\1\}/g, (_, env, content) => {
+    return '$$$$\n\\begin{' + env + '}' + content + '\\end{' + env + '}\n$$$$'
+  })
+  // \boxed{...} on its own line → $$ \boxed{...} $$  (greedy .* backtracks to last })
+  result = result.replace(/^(\s*)\\boxed\{(.*)\}(\s*)$/gm, '$1$$$$\n\\boxed{$2}\n$$$$$3')
+  // Orphan \] or \[ (after matched pairs are already converted) → $$
+  result = result.replace(/\\\]/g, '$$$$')
+  result = result.replace(/\\\[/g, '$$$$')
   return result
 }
 
