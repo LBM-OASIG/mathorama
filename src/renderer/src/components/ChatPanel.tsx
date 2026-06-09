@@ -303,13 +303,31 @@ function MarkdownRenderer({ content, isUser }: { content: string; isUser: boolea
 // ── Split Thinking / Answer ───────────────────────────────
 
 function splitThinkingAnswer(content: string): { thinking: string | null; answer: string | null } {
-  // Match content after "## Thinking" until "## Answer" or end
-  const thinkingMatch = content.match(/^##\s*Thinking\s*\n([\s\S]*?)(?=\n##\s*Answer\s*\n|$)/m)
-  // Match content after "## Answer"
-  const answerMatch = content.match(/^##\s*Answer\s*\n([\s\S]*?)$/m)
+  // Find "## Answer" anywhere. Everything before is thinking, everything after is answer.
+  // Strip optional "## Thinking" heading from the thinking part.
+
+  const answerMatch = content.match(/([\s\S]*?)##\s*Answer\b([\s\S]*)/)
+
+  if (!answerMatch) {
+    // No ## Answer — look for just ## Thinking at line start
+    const thinkingMatch = content.match(/^##\s*Thinking\s*\n?([\s\S]*)/m)
+    return {
+      thinking: thinkingMatch ? thinkingMatch[1].trim() : null,
+      answer: null,
+    }
+  }
+
+  // answerMatch[1] = everything before ## Answer (thinking)
+  // answerMatch[2] = everything after ## Answer (answer body)
+  const beforeAnswer = answerMatch[1].trim()
+  const afterAnswer = answerMatch[2].trim()
+
+  // Strip optional "## Thinking" heading
+  const thinkingContent = beforeAnswer.replace(/^##\s*Thinking\s*\n?/m, '').trim()
+
   return {
-    thinking: thinkingMatch ? thinkingMatch[1].trim() : null,
-    answer: answerMatch ? answerMatch[1].trim() : null,
+    thinking: thinkingContent || null,
+    answer: afterAnswer || null,
   }
 }
 
@@ -351,11 +369,6 @@ function ThinkingAnswerRenderer({ content, isUser }: { content: string; isUser: 
         <div className="font-body text-[14px] leading-relaxed">
           <MarkdownRenderer content={answer} isUser={isUser} />
         </div>
-      )}
-
-      {/* Still thinking (no answer marker yet) — show raw */}
-      {!answer && (
-        <MarkdownRenderer content={content} isUser={isUser} />
       )}
     </>
   )
