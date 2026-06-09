@@ -1,8 +1,17 @@
 import { create } from 'zustand'
-import type { Conversation, Message, ProviderConfig } from '../types'
+import type { Conversation, Message, ProviderConfig, ToolTrace } from '../types'
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+let saveTimeout: ReturnType<typeof setTimeout> | null = null
+
+function scheduleSave(conversations: Conversation[]): void {
+  if (saveTimeout) clearTimeout(saveTimeout)
+  saveTimeout = setTimeout(() => {
+    window.mathorama.conversations.saveAll(conversations).catch(() => {})
+  }, 500)
 }
 
 function createNewConversation(title?: string): Conversation {
@@ -16,13 +25,22 @@ function createNewConversation(title?: string): Conversation {
   }
 }
 
+interface StoredProviderData {
+  apiKey?: string
+  baseUrl?: string
+  models?: string[]
+}
+
 interface ChatState {
   conversations: Conversation[]
   currentConversationId: string | null
   streamingContent: string
   providers: ProviderConfig[]
+  selectedProvider: string | null
+  selectedModel: string | null
   isLoading: boolean
   error: string | null
+  _loaded: boolean
 
   // Actions
   createNewConversation: () => string
@@ -34,6 +52,9 @@ interface ChatState {
   deleteConversation: (id: string) => void
   updateConversationTitle: (id: string, title: string) => void
   setError: (error: string | null) => void
+  setSelectedModel: (provider: string, model: string) => void
+  loadProviders: () => Promise<void>
+  loadConversations: () => Promise<void>
 }
 
 export const useChatStore = create<ChatState>((set, get) => {
@@ -45,8 +66,24 @@ export const useChatStore = create<ChatState>((set, get) => {
     currentConversationId: defaultConv.id,
     streamingContent: '',
     providers: [],
+    selectedProvider: null,
+    selectedModel: null,
     isLoading: false,
     error: null,
+    _loaded: false,
+
+    loadConversations: async () => {
+      try {
+        const saved = await window.mathorama.conversations.loadAll()
+        if (saved && (saved as Conversation[]).length > 0) {
+          set({
+            conversations: saved as Conversation[],
+            currentConversationId: (saved as Conversation[])[0].id,
+            _loaded: true
+          })
+        }
+      } catch { /* ignore */ }
+    },
 
     createNewConversation: () => {
       const conv = createNewConversation()
@@ -54,6 +91,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         conversations: [conv, ...state.conversations],
         currentConversationId: conv.id
       }))
+      scheduleSave(get().conversations)
       return conv.id
     },
 
@@ -119,15 +157,28 @@ export const useChatStore = create<ChatState>((set, get) => {
             content: m.content
           }))
 
-        // Call the LLM API via preload bridge
-        const response = await window.mathorama.llm.chat({
-          provider: provider || 'openai',
-          model: model || 'gpt-4',
-          messages: apiMessages,
-          stream: false
+        // Resolve provider and model – use provided values, then store selection, then first available
+        const resolvedProvider = provider || state.selectedProvider || 'openai'
+        const resolvedModel = model || state.selectedModel || 'gpt-4'
+
+        // Call the agent loop via preload bridge
+        const response = await window.mathorama.agent.run({
+          provider: resolvedProvider,
+          model: resolvedModel,
+          messages: apiMessages
         })
 
-        // Update assistant message with response
+        // Extract images from trace (tool "plot" results that are base64)
+        const images: string[] = []
+        if (response.trace) {
+          for (const tr of response.trace) {
+            if (tr.tool === 'plot' && typeof tr.result === 'string' && tr.result.startsWith('data:image')) {
+              images.push(tr.result)
+            }
+          }
+        }
+
+        // Update assistant message with content, trace, and images
         set((s) => ({
           conversations: s.conversations.map((c) => {
             if (c.id === convId) {
@@ -135,7 +186,13 @@ export const useChatStore = create<ChatState>((set, get) => {
                 ...c,
                 messages: c.messages.map((m) =>
                   m.id === assistantMessage.id
-                    ? { ...m, content: response.content, status: 'done' as const }
+                    ? {
+                        ...m,
+                        content: response.content,
+                        trace: (response.trace as ToolTrace[]) || [],
+                        images: images.length > 0 ? images : undefined,
+                        status: 'done' as const
+                      }
                     : m
                 ),
                 updatedAt: Date.now()
@@ -168,6 +225,7 @@ export const useChatStore = create<ChatState>((set, get) => {
           error: errorMsg
         }))
       }
+      scheduleSave(get().conversations)
     },
 
     appendToLastMessage: (content: string) => {
@@ -214,6 +272,7 @@ export const useChatStore = create<ChatState>((set, get) => {
           error: null
         }
       })
+      scheduleSave(get().conversations)
     },
 
     deleteConversation: (id: string) => {
@@ -244,19 +303,67 @@ export const useChatStore = create<ChatState>((set, get) => {
           error: null
         }
       })
+      scheduleSave(get().conversations)
     },
 
     updateConversationTitle: (id: string, title: string) => {
       set((s) => ({
         conversations: s.conversations.map((c) => (c.id === id ? { ...c, title } : c))
       }))
+      scheduleSave(get().conversations)
     },
 
     setError: (error: string | null) => {
       set({ error })
+    },
+
+    setSelectedModel: (provider: string, model: string) => {
+      set({ selectedProvider: provider, selectedModel: model })
+    },
+
+    loadProviders: async () => {
+      try {
+        const allConfig = await window.mathorama.config.getAll()
+        const storedProviders = (allConfig?.['providers'] as Record<string, StoredProviderData>) || {}
+
+        const providerList: ProviderConfig[] = Object.entries(storedProviders).map(([name, data]) => {
+          // Determine the provider type id from name (or default to 'custom')
+          let id: ProviderConfig['id'] = 'custom'
+          if (name === 'openai') id = 'openai'
+          else if (name === 'anthropic') id = 'anthropic'
+
+          return {
+            id,
+            name,
+            apiKey: data.apiKey || '',
+            baseUrl: data.baseUrl || undefined,
+            models: data.models || []
+          }
+        })
+
+        set({ providers: providerList })
+
+        // Auto-select first model if nothing is selected yet
+        const state = get()
+        if (!state.selectedModel && providerList.length > 0) {
+          const firstProvider = providerList[0]
+          if (firstProvider.models.length > 0) {
+            set({
+              selectedProvider: firstProvider.name,
+              selectedModel: firstProvider.models[0]
+            })
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load providers:', err)
+        set({ providers: [] })
+      }
     }
   }
 })
+
+// Auto-load conversations on init
+useChatStore.getState().loadConversations()
 
 // Selector helpers
 export const selectCurrentConversation = (state: ChatState): Conversation | undefined =>

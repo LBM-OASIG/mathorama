@@ -1,4 +1,22 @@
-import { LLMProvider, LLMChatParams, LLMProviderConfig } from './types'
+import { LLMProvider, LLMChatParams, LLMChatResult, LLMProviderConfig } from './types'
+
+interface OpenAIChoice {
+  message: {
+    content: string | null
+    tool_calls?: Array<{
+      id: string
+      type: string
+      function: {
+        name: string
+        arguments: string
+      }
+    }>
+  }
+}
+
+interface OpenAIResponse {
+  choices: OpenAIChoice[]
+}
 
 export class OpenAIProvider implements LLMProvider {
   readonly name = 'openai'
@@ -12,20 +30,27 @@ export class OpenAIProvider implements LLMProvider {
     return this.config.baseUrl ?? 'https://api.openai.com/v1'
   }
 
-  async chat(params: LLMChatParams): Promise<{ content: string }> {
+  async chat(params: LLMChatParams): Promise<LLMChatResult> {
+    const body: Record<string, unknown> = {
+      model: params.model,
+      messages: params.messages,
+      temperature: params.temperature ?? 0.7,
+      max_tokens: params.maxTokens ?? 4096,
+      stream: false
+    }
+
+    if (params.tools && params.tools.length > 0) {
+      body.tools = params.tools
+      body.tool_choice = 'auto'
+    }
+
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.config.apiKey}`
       },
-      body: JSON.stringify({
-        model: params.model,
-        messages: params.messages,
-        temperature: params.temperature ?? 0.7,
-        max_tokens: params.maxTokens ?? 4096,
-        stream: false
-      })
+      body: JSON.stringify(body)
     })
 
     if (!response.ok) {
@@ -33,11 +58,24 @@ export class OpenAIProvider implements LLMProvider {
       throw new Error(`OpenAI API error (${response.status}): ${errorBody}`)
     }
 
-    const data = await response.json() as {
-      choices: Array<{ message: { content: string } }>
+    const data = await response.json() as OpenAIResponse
+    const message = data.choices[0].message
+
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      return {
+        content: message.content ?? undefined,
+        tool_calls: message.tool_calls.map(tc => ({
+          id: tc.id,
+          type: tc.type,
+          function: {
+            name: tc.function.name,
+            arguments: tc.function.arguments
+          }
+        }))
+      }
     }
 
-    return { content: data.choices[0].message.content }
+    return { content: message.content ?? '' }
   }
 
   async listModels(): Promise<string[]> {

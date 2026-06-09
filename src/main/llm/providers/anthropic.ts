@@ -1,4 +1,22 @@
-import { LLMProvider, LLMChatParams, LLMProviderConfig } from './types'
+import { LLMProvider, LLMChatParams, LLMChatResult, LLMProviderConfig, ToolCall } from './types'
+
+interface AnthropicTextBlock {
+  type: 'text'
+  text: string
+}
+
+interface AnthropicToolUseBlock {
+  type: 'tool_use'
+  id: string
+  name: string
+  input: Record<string, unknown>
+}
+
+type AnthropicContentBlock = AnthropicTextBlock | AnthropicToolUseBlock
+
+interface AnthropicResponse {
+  content: AnthropicContentBlock[]
+}
 
 export class AnthropicProvider implements LLMProvider {
   readonly name = 'anthropic'
@@ -8,18 +26,50 @@ export class AnthropicProvider implements LLMProvider {
     this.config = config
   }
 
-  async chat(params: LLMChatParams): Promise<{ content: string }> {
+  async chat(params: LLMChatParams): Promise<LLMChatResult> {
     const systemMessages = params.messages.filter(m => m.role === 'system')
     const nonSystemMessages = params.messages.filter(m => m.role !== 'system')
 
     const body: Record<string, unknown> = {
       model: params.model,
-      messages: nonSystemMessages.map(m => ({
-        role: m.role,
-        content: m.content
-      })),
+      messages: nonSystemMessages.map(m => {
+        if (m.tool_calls && m.tool_calls.length > 0) {
+          const content: AnthropicContentBlock[] = []
+          if (m.content) content.push({ type: 'text', text: m.content })
+          for (const tc of m.tool_calls) {
+            content.push({
+              type: 'tool_use',
+              id: tc.id,
+              name: tc.function.name,
+              input: JSON.parse(tc.function.arguments)
+            })
+          }
+          return { role: m.role, content }
+        }
+
+        if (m.role === 'tool' && m.tool_call_id) {
+          return {
+            role: 'user',
+            content: [{
+              type: 'tool_result',
+              tool_use_id: m.tool_call_id,
+              content: m.content ?? ''
+            }]
+          }
+        }
+
+        return { role: m.role, content: m.content ?? '' }
+      }),
       max_tokens: params.maxTokens ?? 4096,
       stream: false
+    }
+
+    if (params.tools && params.tools.length > 0) {
+      body.tools = params.tools.map(t => ({
+        name: t.function.name,
+        description: t.function.description,
+        input_schema: t.function.parameters
+      }))
     }
 
     if (systemMessages.length > 0) {
@@ -45,11 +95,34 @@ export class AnthropicProvider implements LLMProvider {
       throw new Error(`Anthropic API error (${response.status}): ${errorBody}`)
     }
 
-    const data = await response.json() as {
-      content: Array<{ text: string }>
+    const data = await response.json() as AnthropicResponse
+    const content: string[] = []
+    const toolCalls: ToolCall[] = []
+
+    for (const block of data.content) {
+      if (block.type === 'text') {
+        content.push(block.text)
+      } else if (block.type === 'tool_use') {
+        toolCalls.push({
+          id: block.id,
+          type: 'function',
+          function: {
+            name: block.name,
+            arguments: JSON.stringify(block.input)
+          }
+        })
+      }
     }
 
-    return { content: data.content[0].text }
+    const result: LLMChatResult = {}
+    if (content.length > 0) {
+      result.content = content.join('')
+    }
+    if (toolCalls.length > 0) {
+      result.tool_calls = toolCalls
+    }
+
+    return result
   }
 
   async listModels(): Promise<string[]> {

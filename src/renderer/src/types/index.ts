@@ -1,9 +1,17 @@
+export interface ToolTrace {
+  tool: string
+  args: Record<string, unknown>
+  result: string
+}
+
 export interface Message {
   id: string
-  role: 'user' | 'assistant' | 'system'
+  role: 'user' | 'assistant' | 'system' | 'tool'
   content: string
   timestamp: number
   status?: 'sending' | 'streaming' | 'done' | 'error'
+  trace?: ToolTrace[]
+  images?: string[]
 }
 
 export interface Conversation {

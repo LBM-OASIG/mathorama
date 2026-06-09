@@ -8,6 +8,8 @@ export default function ChatPanel(): JSX.Element {
   const sendMessage = useChatStore((s) => s.sendMessage)
   const clearConversation = useChatStore((s) => s.clearConversation)
   const error = useChatStore((s) => s.error)
+  const selectedProvider = useChatStore((s) => s.selectedProvider)
+  const selectedModel = useChatStore((s) => s.selectedModel)
 
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -27,11 +29,11 @@ export default function ChatPanel(): JSX.Element {
     if (!trimmed || isLoading) return
 
     setInput('')
-    await sendMessage(trimmed)
+    await sendMessage(trimmed, selectedProvider || undefined, selectedModel || undefined)
 
     // Focus back on input after sending
     inputRef.current?.focus()
-  }, [input, isLoading, sendMessage])
+  }, [input, isLoading, sendMessage, selectedProvider, selectedModel])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -123,6 +125,7 @@ function MessageBubble({ message }: { message: Message }): JSX.Element {
   const isUser = message.role === 'user'
   const isError = message.status === 'error'
   const isStreaming = message.status === 'streaming'
+  const [traceOpen, setTraceOpen] = useState(false)
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -149,6 +152,51 @@ function MessageBubble({ message }: { message: Message }): JSX.Element {
         <div className="whitespace-pre-wrap break-words">
           {message.content || (isStreaming ? '' : '...')}
         </div>
+
+        {/* Images from plot tool */}
+        {message.images && message.images.length > 0 && (
+          <div className="mt-2 space-y-2">
+            {message.images.map((img, i) => (
+              <img
+                key={i}
+                src={img}
+                alt={`Plot ${i + 1}`}
+                className="max-w-full rounded border border-gray-700"
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Tool trace (collapsible) */}
+        {message.trace && message.trace.length > 0 && (
+          <div className="mt-2">
+            <button
+              onClick={() => setTraceOpen(!traceOpen)}
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300"
+            >
+              {traceOpen ? '\u25BE' : '\u25B8'} Used {message.trace.length} tool
+              {message.trace.length > 1 ? 's' : ''}
+            </button>
+            {traceOpen && (
+              <div className="mt-1 space-y-1">
+                {message.trace.map((t, i) => (
+                  <div key={i} className="rounded bg-gray-900/80 p-2 text-xs font-mono">
+                    <div className="text-blue-400">{t.tool}</div>
+                    <div className="mt-0.5 text-gray-500">
+                      Args: {JSON.stringify(t.args)}
+                    </div>
+                    <div className="mt-0.5 text-gray-400">
+                      Result:{' '}
+                      {t.result.length > 200
+                        ? t.result.slice(0, 200) + '...'
+                        : t.result}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

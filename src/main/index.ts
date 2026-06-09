@@ -3,6 +3,8 @@ import { join } from 'path'
 import { registerLLMHandlers, initializeDefaultProviders } from './llm/bridge'
 import { registerPythonHandlers } from './python/bridge'
 import { registerConfigHandlers } from './config/manager'
+import { registerAgentHandlers } from './agent/bridge'
+import { registerConversationHandlers } from './conversations/bridge'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -30,6 +32,8 @@ app.whenReady().then(() => {
   registerLLMHandlers()
   registerPythonHandlers()
   registerConfigHandlers()
+  registerAgentHandlers()
+  registerConversationHandlers()
   initializeDefaultProviders()
   createWindow()
 

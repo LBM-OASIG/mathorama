@@ -4,7 +4,7 @@ import * as path from 'path'
 
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json')
 
-function readConfig(): Record<string, unknown> {
+export function readConfig(): Record<string, unknown> {
   try {
     if (fs.existsSync(CONFIG_PATH)) {
       return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'))
@@ -14,7 +14,7 @@ function readConfig(): Record<string, unknown> {
   return {}
 }
 
-function writeConfig(config: Record<string, unknown>): void {
+export function writeConfig(config: Record<string, unknown>): void {
   const dir = path.dirname(CONFIG_PATH)
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })

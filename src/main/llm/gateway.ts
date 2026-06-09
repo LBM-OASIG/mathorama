@@ -1,6 +1,6 @@
 import { OpenAIProvider } from './providers/openai'
 import { AnthropicProvider } from './providers/anthropic'
-import { LLMChatParams } from './providers/types'
+import { LLMChatParams, LLMChatResult } from './providers/types'
 
 export interface ProviderConfig {
   apiKey: string
@@ -8,10 +8,10 @@ export interface ProviderConfig {
 }
 
 class LLMGateway {
-  private providers: Map<string, { provider: { chat(params: LLMChatParams): Promise<{ content: string }>; listModels(): Promise<string[]> }; config: ProviderConfig }> = new Map()
+  private providers: Map<string, { provider: { chat(params: LLMChatParams): Promise<LLMChatResult>; listModels(): Promise<string[]> }; config: ProviderConfig }> = new Map()
 
   setProvider(name: string, config: ProviderConfig): void {
-    let instance: { chat(params: LLMChatParams): Promise<{ content: string }>; listModels(): Promise<string[]> }
+    let instance: { chat(params: LLMChatParams): Promise<LLMChatResult>; listModels(): Promise<string[]> }
 
     switch (name) {
       case 'openai':
@@ -32,7 +32,11 @@ class LLMGateway {
     this.providers.delete(name)
   }
 
-  async chat(providerName: string, params: LLMChatParams): Promise<{ content: string }> {
+  async chat(providerName: string, params: LLMChatParams): Promise<LLMChatResult> {
+    return this.chatWithTools(providerName, params)
+  }
+
+  async chatWithTools(providerName: string, params: LLMChatParams & { tool_choice?: 'auto' | 'any' }): Promise<LLMChatResult> {
     const entry = this.providers.get(providerName)
     if (!entry) throw new Error(`Provider "${providerName}" not configured`)
     return entry.provider.chat(params)

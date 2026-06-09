@@ -1,32 +1,40 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 const api = {
-  // LLM
   llm: {
     chat: (params: { provider: string; model: string; messages: Array<{ role: string; content: string }>; stream?: boolean }) =>
       ipcRenderer.invoke('llm:chat', params),
+    chatWithTools: (params: { provider: string; model: string; messages: Array<{ role: string; content: string }>; tools?: Array<{ name: string; description: string; input_schema: Record<string, unknown>; openai_tool: { type: string; function: { name: string; description: string; parameters: Record<string, unknown> } } }> }) =>
+      ipcRenderer.invoke('llm:chatWithTools', params),
     listModels: (provider: string) =>
       ipcRenderer.invoke('llm:listModels', provider)
   },
-  // Python
   python: {
     execute: (code: string) =>
       ipcRenderer.invoke('python:execute', code),
+    executeTool: (toolName: string, args: Record<string, unknown>) =>
+      ipcRenderer.invoke('python:executeTool', toolName, args),
     installPackages: (packages: string[]) =>
       ipcRenderer.invoke('python:installPackages', packages)
   },
-  // Config
   config: {
     get: (key: string) => ipcRenderer.invoke('config:get', key),
     set: (key: string, value: unknown) => ipcRenderer.invoke('config:set', key, value),
     getAll: () => ipcRenderer.invoke('config:getAll')
   },
-  // Provider management
   provider: {
     set: (name: string, config: { apiKey: string; baseUrl?: string }) =>
       ipcRenderer.invoke('config:setProvider', name, config),
     remove: (name: string) =>
       ipcRenderer.invoke('config:removeProvider', name)
+  },
+  agent: {
+    run: (params: { provider: string; model: string; messages: Array<{ role: string; content: string }> }) =>
+      ipcRenderer.invoke('agent:run', params)
+  },
+  conversations: {
+    loadAll: () => ipcRenderer.invoke('conversations:loadAll'),
+    saveAll: (conversations: unknown[]) => ipcRenderer.invoke('conversations:saveAll', conversations)
   }
 }
 
