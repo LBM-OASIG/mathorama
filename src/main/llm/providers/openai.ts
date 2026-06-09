@@ -51,6 +51,8 @@ export class OpenAIProvider implements LLMProvider {
       body.tool_choice = 'auto'
     }
 
+    console.log('[OpenAI] non-stream request:', { model: body.model, maxTokens: body.max_tokens, hasTools: !!(body.tools && body.tools.length > 0) })
+
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -103,6 +105,8 @@ export class OpenAIProvider implements LLMProvider {
       tool_choice: params.tools?.length ? 'auto' : undefined,
       ...params.extraBody
     }
+
+    console.log('[OpenAI] stream request:', { model: body.model, maxTokens: body.max_tokens, hasTools: !!(body.tools && body.tools.length > 0) })
 
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',

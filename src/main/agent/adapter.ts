@@ -73,7 +73,7 @@ export function buildLLMParams(
     }
   }
 
-  return {
+  const result: LLMChatParams = {
     model: agent.model,
     messages,
     temperature,
@@ -85,4 +85,15 @@ export function buildLLMParams(
     tools: tools as LLMChatParams['tools'],
     extraBody
   }
+
+  // Debug: log what we're actually sending
+  console.log('[Adapter] buildLLMParams:', {
+    family,
+    model: agent.model,
+    maxTokens,
+    temperature,
+    extraBodyKeys: Object.keys(extraBody)
+  })
+
+  return result
 }

@@ -76,17 +76,18 @@ export default function AgentEditorDialog({ isOpen, onClose }: AgentEditorDialog
 
   const selectAgent = useCallback((idx: number) => {
     if (dirty) {
-      // Save current before switching
+      // Auto-save current before switching
       const updated = [...agents]
       if (editIndex >= 0 && editIndex < updated.length) {
-        updated[editIndex] = form
+        const trimmed = form.name.trim()
+        updated[editIndex] = { ...form, name: trimmed || updated[editIndex].name }
       }
-      // This is auto-saved below anyway
+      updateAgents(updated)
     }
     setEditIndex(idx)
     setForm({ ...agents[idx] })
     setDirty(false)
-  }, [dirty, editIndex, form, agents])
+  }, [dirty, editIndex, form, agents, updateAgents])
 
   const addAgent = useCallback(() => {
     setEditIndex(-1)
