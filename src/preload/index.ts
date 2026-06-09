@@ -29,13 +29,13 @@ const api = {
       ipcRenderer.invoke('config:removeProvider', name)
   },
   agent: {
-    run: (params: { agent: { name: string; provider: string; model: string; system_prompt: string; params: Record<string, unknown>; tools: string[] }; messages: Array<{ role: string; content: string }> }) =>
+    run: (params: { agent: { name: string; provider: string; model: string; system_prompt: string; params: Record<string, unknown>; tools: string[] }; messages: Array<{ role: string; content: string }>; convId: string }) =>
       ipcRenderer.invoke('agent:run', params),
     list: () => ipcRenderer.invoke('agent:list'),
     save: (agents: unknown[]) => ipcRenderer.invoke('agent:save', agents)
   },
-  onStreamToken: (callback: (token: string) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, token: string) => callback(token)
+  onStreamToken: (callback: (data: { convId: string; token: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { convId: string; token: string }) => callback(data)
     ipcRenderer.on('agent:stream-token', handler)
     return () => ipcRenderer.removeListener('agent:stream-token', handler)
   },

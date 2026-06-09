@@ -46,6 +46,7 @@ interface MathoramaAPI {
         tools: string[]
       }
       messages: Array<{ role: string; content: string }>
+      convId: string
     }) => Promise<{ content: string; trace: Array<{ tool: string; args: Record<string, unknown>; result: string }> }>,
     list: () => Promise<Array<{
       name: string
@@ -58,7 +59,7 @@ interface MathoramaAPI {
     }>>,
     save: (agents: unknown[]) => Promise<void>
   }
-  onStreamToken: (callback: (token: string) => void) => () => void
+  onStreamToken: (callback: (data: { convId: string; token: string }) => void) => () => void
   conversations: {
     loadAll: () => Promise<unknown[]>
     saveAll: (conversations: unknown[]) => Promise<void>

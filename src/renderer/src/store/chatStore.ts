@@ -181,9 +181,13 @@ export const useChatStore = create<ChatState>((set, get) => {
         let fullStreamedContent = ''  // Preserve ALL streamed tokens (thinking + final)
         let charInterval: ReturnType<typeof setInterval> | null = null
 
-        const unsubscribe = window.mathorama.onStreamToken((token: string) => {
-          charBuffer += token
-          fullStreamedContent += token  // Full record, never lost
+        // Keep track of which conversation these tokens belong to
+        const thisConvId = convId
+        const unsubscribe = window.mathorama.onStreamToken((data: { convId: string; token: string }) => {
+          // Only accept tokens for this conversation — prevents cross-conversation mixing
+          if (data.convId !== thisConvId) return
+          charBuffer += data.token
+          fullStreamedContent += data.token  // Full record, never lost
         })
 
         // Reveal one character at a time from the buffer
@@ -213,7 +217,8 @@ export const useChatStore = create<ChatState>((set, get) => {
         // Call the agent loop via preload bridge
         const response = await window.mathorama.agent.run({
           agent: agentForCall,
-          messages: apiMessages
+          messages: apiMessages,
+          convId
         })
 
         // Continue streaming remaining content char-by-char (even after API done)

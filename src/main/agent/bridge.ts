@@ -6,13 +6,14 @@ export function registerAgentHandlers(): void {
   ipcMain.handle('agent:run', async (event, params: {
     agent: AgentConfig
     messages: Array<{ role: string; content: string }>
+    convId: string  // Conversation ID — included in stream events so renderer can filter
   }) => {
     try {
       const result = await runAgent({
         agent: params.agent,
         messages: params.messages,
         onToken: (token: string) => {
-          event.sender.send('agent:stream-token', token)
+          event.sender.send('agent:stream-token', { convId: params.convId, token })
         }
       })
       return result
