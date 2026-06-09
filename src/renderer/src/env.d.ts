@@ -37,8 +37,14 @@ interface MathoramaAPI {
   }
   agent: {
     run: (params: {
-      provider: string
-      model: string
+      agent: {
+        name: string
+        provider: string
+        model: string
+        system_prompt: string
+        params: Record<string, unknown>
+        tools: string[]
+      }
       messages: Array<{ role: string; content: string }>
     }) => Promise<{ content: string; trace: Array<{ tool: string; args: Record<string, unknown>; result: string }> }>
   }

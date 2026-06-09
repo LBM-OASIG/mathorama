@@ -31,3 +31,25 @@ export interface ProviderConfig {
   baseUrl?: string
   models: string[]
 }
+
+/** Semantic parameters — adapter translates per model. */
+export interface AgentParams {
+  temperature?: number
+  max_tokens?: number
+  top_p?: number
+  stop?: string[]
+  reasoning_effort?: 'low' | 'medium' | 'high'
+  frequency_penalty?: number
+  presence_penalty?: number
+}
+
+/** Agent configuration entity. */
+export interface AgentConfig {
+  name: string
+  description?: string
+  provider: string
+  model: string
+  system_prompt: string
+  params: AgentParams
+  tools: string[]
+}

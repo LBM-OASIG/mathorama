@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Conversation, Message, ProviderConfig, ToolTrace } from '../types'
+import type { Conversation, Message, ProviderConfig, ToolTrace, AgentConfig } from '../types'
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -31,6 +31,56 @@ interface StoredProviderData {
   models?: string[]
 }
 
+// ── Default Agents ────────────────────────────────────────
+
+const DEFAULT_AGENTS: AgentConfig[] = [
+  {
+    name: 'Math Tutor',
+    description: 'Full mathematical toolbox — evaluate, solve, simplify, differentiate, integrate, plot',
+    provider: 'openai',
+    model: 'gpt-4o',
+    system_prompt: `You are Mathorama, a mathematical problem-solving assistant powered by symbolic computation tools.
+
+Available tools:
+- evaluate_expression: Evaluate numeric expressions (e.g., sin(pi/2) + 1)
+- solve_equation: Solve equations for a variable (e.g., x**2 - 4 = 0)
+- simplify: Simplify algebraic expressions (e.g., x**2 + 2x + 1)
+- differentiate: Compute derivatives (e.g., x**3 + 2x**2 + x)
+- integrate: Compute integrals, optionally with bounds
+- plot: Plot a function and return an image
+
+When solving math problems:
+1. Break the problem into steps
+2. Use tools to perform calculations
+3. For plots, use the plot tool and let the user know an image was generated
+4. Explain your reasoning clearly between tool calls
+5. Never solve math manually — always use the tools for computation`,
+    params: { temperature: 0.3, max_tokens: 4096 },
+    tools: ['evaluate_expression', 'solve_equation', 'simplify', 'differentiate', 'integrate', 'plot']
+  },
+  {
+    name: 'General Assistant',
+    description: 'Chat-only, no math tools',
+    provider: 'openai',
+    model: 'gpt-4o',
+    system_prompt: 'You are a helpful and concise assistant.',
+    params: { temperature: 0.7, max_tokens: 2048 },
+    tools: []
+  },
+  {
+    name: 'Plot Artist',
+    description: 'Focused on mathematical visualization',
+    provider: 'openai',
+    model: 'gpt-4o',
+    system_prompt: `You are a mathematical visualization specialist.
+Use the plot tool to create clear, well-labeled plots.
+Explain what each plot shows and why it's relevant.
+If a problem requires computation before plotting, use evaluate or solve first.`,
+    params: { temperature: 0.7, max_tokens: 4096 },
+    tools: ['plot']
+  }
+]
+
 interface ChatState {
   conversations: Conversation[]
   currentConversationId: string | null
@@ -38,6 +88,8 @@ interface ChatState {
   providers: ProviderConfig[]
   selectedProvider: string | null
   selectedModel: string | null
+  agents: AgentConfig[]
+  selectedAgentName: string
   isLoading: boolean
   error: string | null
   _loaded: boolean
@@ -53,6 +105,7 @@ interface ChatState {
   updateConversationTitle: (id: string, title: string) => void
   setError: (error: string | null) => void
   setSelectedModel: (provider: string, model: string) => void
+  selectAgent: (name: string) => void
   loadProviders: () => Promise<void>
   loadConversations: () => Promise<void>
 }
@@ -68,6 +121,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     providers: [],
     selectedProvider: null,
     selectedModel: null,
+    agents: DEFAULT_AGENTS,
+    selectedAgentName: DEFAULT_AGENTS[0].name,
     isLoading: false,
     error: null,
     _loaded: false,
@@ -157,9 +212,16 @@ export const useChatStore = create<ChatState>((set, get) => {
             content: m.content
           }))
 
-        // Resolve provider and model – use provided values, then store selection, then first available
-        const resolvedProvider = provider || state.selectedProvider || 'openai'
-        const resolvedModel = model || state.selectedModel || 'gpt-4'
+        // Resolve agent from current selection, with optional provider/model override
+        const currentAgent = state.agents.find(a => a.name === state.selectedAgentName) || state.agents[0]
+        const agentForCall = {
+          name: currentAgent.name,
+          provider: provider || currentAgent.provider,
+          model: model || currentAgent.model,
+          system_prompt: currentAgent.system_prompt,
+          params: currentAgent.params as Record<string, unknown>,
+          tools: currentAgent.tools
+        }
 
         // ── Character-by-character streaming ──────────────
         let charBuffer = ''
@@ -195,8 +257,7 @@ export const useChatStore = create<ChatState>((set, get) => {
 
         // Call the agent loop via preload bridge
         const response = await window.mathorama.agent.run({
-          provider: resolvedProvider,
-          model: resolvedModel,
+          agent: agentForCall,
           messages: apiMessages
         })
 
@@ -355,6 +416,17 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     setSelectedModel: (provider: string, model: string) => {
       set({ selectedProvider: provider, selectedModel: model })
+    },
+
+    selectAgent: (name: string) => {
+      const agent = get().agents.find(a => a.name === name)
+      if (agent) {
+        set({
+          selectedAgentName: name,
+          selectedProvider: agent.provider,
+          selectedModel: agent.model
+        })
+      }
     },
 
     loadProviders: async () => {

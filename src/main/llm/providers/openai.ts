@@ -40,7 +40,8 @@ export class OpenAIProvider implements LLMProvider {
       messages: params.messages,
       temperature: params.temperature ?? 0.7,
       max_tokens: params.maxTokens ?? 4096,
-      stream: false
+      stream: false,
+      ...params.extraBody
     }
 
     if (params.tools && params.tools.length > 0) {
@@ -90,7 +91,8 @@ export class OpenAIProvider implements LLMProvider {
       max_tokens: params.maxTokens ?? 4096,
       stream: true,
       tools: params.tools?.length ? params.tools : undefined,
-      tool_choice: params.tools?.length ? 'auto' : undefined
+      tool_choice: params.tools?.length ? 'auto' : undefined,
+      ...params.extraBody
     }
 
     const response = await fetch(`${this.baseUrl}/chat/completions`, {

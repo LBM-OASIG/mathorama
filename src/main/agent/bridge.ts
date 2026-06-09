@@ -1,15 +1,16 @@
 import { ipcMain } from 'electron'
 import { runAgent } from './loop'
+import type { AgentConfig } from './types'
 
 export function registerAgentHandlers(): void {
   ipcMain.handle('agent:run', async (event, params: {
-    provider: string
-    model: string
+    agent: AgentConfig
     messages: Array<{ role: string; content: string }>
   }) => {
     try {
       const result = await runAgent({
-        ...params,
+        agent: params.agent,
+        messages: params.messages,
         onToken: (token: string) => {
           event.sender.send('agent:stream-token', token)
         }

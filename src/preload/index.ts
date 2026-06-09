@@ -29,7 +29,7 @@ const api = {
       ipcRenderer.invoke('config:removeProvider', name)
   },
   agent: {
-    run: (params: { provider: string; model: string; messages: Array<{ role: string; content: string }> }) =>
+    run: (params: { agent: { name: string; provider: string; model: string; system_prompt: string; params: Record<string, unknown>; tools: string[] }; messages: Array<{ role: string; content: string }> }) =>
       ipcRenderer.invoke('agent:run', params)
   },
   onStreamToken: (callback: (token: string) => void) => {

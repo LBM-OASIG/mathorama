@@ -1,24 +1,8 @@
 import { llmGateway } from '../llm/gateway'
 import { executeTool } from '../python/bridge'
-import { getOpenAITools } from './tools'
+import { buildLLMParams } from './adapter'
+import type { AgentConfig } from './types'
 import type { LLMChatMessage } from '../llm/providers/types'
-
-const SYSTEM_PROMPT = `You are Mathorama, a mathematical problem-solving assistant powered by symbolic computation tools.
-
-Available tools:
-- evaluate_expression: Evaluate numeric expressions (e.g., sin(pi/2) + 1)
-- solve_equation: Solve equations for a variable (e.g., x**2 - 4 = 0)
-- simplify: Simplify algebraic expressions (e.g., x**2 + 2x + 1)
-- differentiate: Compute derivatives (e.g., x**3 + 2x**2 + x)
-- integrate: Compute integrals, optionally with bounds
-- plot: Plot a function and return an image
-
-When solving math problems:
-1. Break the problem into steps
-2. Use tools to perform calculations
-3. For plots, use the plot tool and let the user know an image was generated
-4. Explain your reasoning clearly between tool calls
-5. Never solve math manually - always use the tools for computation`
 
 const MAX_ITERATIONS = 10
 
@@ -34,27 +18,24 @@ export interface AgentResult {
 }
 
 export async function runAgent(params: {
-  provider: string
-  model: string
+  agent: AgentConfig
   messages: Array<{ role: string; content: string }>
   onToken?: (token: string) => void
 }): Promise<AgentResult> {
   const trace: ToolTrace[] = []
 
   const msgs: LLMChatMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: params.agent.system_prompt },
     ...params.messages.map(m => ({ role: m.role, content: m.content }))
   ]
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
-    const response = await llmGateway.chatWithTools(params.provider, {
-      model: params.model,
-      messages: msgs,
-      tools: getOpenAITools(),
-      tool_choice: 'auto',
+    const llmParams = buildLLMParams(params.agent, msgs, {
       stream: true,
       onToken: params.onToken
     })
+
+    const response = await llmGateway.chatWithTools(params.agent.provider, llmParams)
 
     if (response.tool_calls && response.tool_calls.length > 0) {
       msgs.push({

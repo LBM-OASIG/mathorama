@@ -38,7 +38,8 @@ export class AnthropicProvider implements LLMProvider {
       model: params.model,
       messages: this.convertMessages(nonSystemMessages),
       max_tokens: params.maxTokens ?? 4096,
-      stream: false
+      stream: false,
+      ...params.extraBody
     }
 
     if (params.tools && params.tools.length > 0) {
@@ -146,7 +147,8 @@ export class AnthropicProvider implements LLMProvider {
         name: t.function.name,
         description: t.function.description,
         input_schema: t.function.parameters
-      })) || undefined
+      })) || undefined,
+      ...params.extraBody
     }
 
     if (systemMessages.length > 0) {

@@ -22,6 +22,8 @@ export interface LLMChatParams {
   onToken?: (token: string) => void
   temperature?: number
   maxTokens?: number
+  /** Provider-specific overrides merged into the request body last. */
+  extraBody?: Record<string, unknown>
 }
 
 export interface LLMChatResult {
