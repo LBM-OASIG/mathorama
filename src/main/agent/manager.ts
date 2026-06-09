@@ -3,6 +3,8 @@ import { readConfig, writeConfig } from '../config/manager'
 import type { AgentConfig } from './types'
 
 const AGENTS_KEY = 'agents'
+const AGENTS_VERSION_KEY = 'agents_version'
+const CURRENT_AGENTS_VERSION = 2  // Increment when default prompts change
 
 function defaultAgents(): AgentConfig[] {
   return [
@@ -21,12 +23,27 @@ Available tools:
 - integrate: Compute integrals, optionally with bounds
 - plot: Plot a function and return an image
 
+CRITICAL: You MUST show your step-by-step reasoning in a "## Thinking" section before giving the final answer. Never just output an answer — always walk through your thought process.
+
 When solving math problems:
-1. Break the problem into steps
-2. Use tools to perform calculations
-3. For plots, use the plot tool and let the user know an image was generated
-4. Explain your reasoning clearly between tool calls
-5. Never solve math manually — always use the tools for computation`,
+1. **Think first** — Start with "## Thinking" and explain how you'll approach the problem
+2. **Use tools** — Call the appropriate tool for each computation step
+3. **Interpret results** — After each tool result, explain what it means in plain language
+4. **Synthesize** — After all steps, give the final answer in a "## Answer" section
+5. **Never solve math manually** — Always use available tools for computation
+6. **Use LaTeX** — Format all math expressions with $$...$$ or $...$
+
+Example structure:
+## Thinking
+Let me break down this problem step by step.
+First, I need to... So I'll use evaluate_expression to...
+
+[Tool call]
+
+The tool tells us that... Next I'll...
+
+## Answer
+The result is $$...$$`,
       params: { temperature: 0.3, max_tokens: 4096 },
       tools: ['evaluate_expression', 'solve_equation', 'simplify', 'differentiate', 'integrate', 'plot']
     },
@@ -57,18 +74,35 @@ If a problem requires computation before plotting, use evaluate or solve first.`
 export function loadAgents(): AgentConfig[] {
   const config = readConfig()
   const stored = config[AGENTS_KEY] as AgentConfig[] | undefined
-  if (stored && Array.isArray(stored) && stored.length > 0) {
-    return stored
-  }
-  // First run: seed defaults
+  const storedVersion = (config[AGENTS_VERSION_KEY] as number) || 0
   const defaults = defaultAgents()
-  saveAgents(defaults)
-  return defaults
+
+  if (!stored || !Array.isArray(stored) || stored.length === 0) {
+    // First run: seed defaults
+    saveAgents(defaults)
+    return defaults
+  }
+
+  // Upgrade built-in agent prompts when version changes (preserve provider/model/params)
+  if (storedVersion < CURRENT_AGENTS_VERSION) {
+    const upgraded = stored.map((agent) => {
+      const match = defaults.find((d) => d.name === agent.name)
+      if (match) {
+        return { ...agent, system_prompt: match.system_prompt, tools: match.tools }
+      }
+      return agent
+    })
+    saveAgents(upgraded)
+    return upgraded
+  }
+
+  return stored
 }
 
 export function saveAgents(agents: AgentConfig[]): void {
   const config = readConfig()
   config[AGENTS_KEY] = agents
+  config[AGENTS_VERSION_KEY] = CURRENT_AGENTS_VERSION
   writeConfig(config)
 }
 

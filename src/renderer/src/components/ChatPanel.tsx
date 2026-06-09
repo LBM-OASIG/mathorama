@@ -167,20 +167,21 @@ export default function ChatPanel(): JSX.Element {
 function preprocessLatex(text: string): string {
   let result = text
   // Single $ on its own line → $$...$$ (display)
+  // Note: in .replace(), $$ in replacement = literal $, so $$$$ → $$
   // Catches: \n$\n...\n$\n where $ is the only char on the line
-  result = result.replace(/\n\s*\$\s*\n([\s\S]*?)\n\s*\$\s*\n/g, '\n$$\n$1\n$$\n')
+  result = result.replace(/\n\s*\$\s*\n([\s\S]*?)\n\s*\$\s*\n/g, '\n$$$$\n$1\n$$$$\n')
   // Also handle $ at very start or end of string (no leading/trailing \n)
-  result = result.replace(/^\s*\$\s*\n([\s\S]*?)\n\s*\$\s*$/m, '$$\n$1\n$$')
-  result = result.replace(/^\s*\$\s*\n([\s\S]*?)\n\s*\$\s*\n/, '$$\n$1\n$$\n')
-  result = result.replace(/\n\s*\$\s*\n([\s\S]*?)\n\s*\$\s*$/, '\n$$\n$1\n$$')
+  result = result.replace(/^\s*\$\s*\n([\s\S]*?)\n\s*\$\s*$/m, '$$$$\n$1\n$$$$')
+  result = result.replace(/^\s*\$\s*\n([\s\S]*?)\n\s*\$\s*\n/, '$$$$\n$1\n$$$$\n')
+  result = result.replace(/\n\s*\$\s*\n([\s\S]*?)\n\s*\$\s*$/, '\n$$$$\n$1\n$$$$')
   // \ [ ... \ ] → $$ ... $$ (display)
-  result = result.replace(/\\\[([\s\S]*?)\\\]/g, '$$\n$1\n$$')
+  result = result.replace(/\\\[([\s\S]*?)\\\]/g, '$$$$\n$1\n$$$$')
   // \( ... \) → $ ... $ (inline)
   result = result.replace(/\\\(([\s\S]*?)\\\)/g, '$$$1$$')
   // \begin{equation}...\end{equation} → $$...$$
-  result = result.replace(/\\begin\{equation\}([\s\S]*?)\\end\{equation\}/g, '$$\n$1\n$$')
+  result = result.replace(/\\begin\{equation\}([\s\S]*?)\\end\{equation\}/g, '$$$$\n$1\n$$$$')
   // \begin{align}...\end{align} → $$...$$
-  result = result.replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, '$$\n$1\n$$')
+  result = result.replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, '$$$$\n$1\n$$$$')
   return result
 }
 
