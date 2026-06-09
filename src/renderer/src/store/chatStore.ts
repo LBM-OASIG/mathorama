@@ -177,10 +177,12 @@ export const useChatStore = create<ChatState>((set, get) => {
 
         // ── Character-by-character streaming ──────────────
         let charBuffer = ''
+        let fullStreamedContent = ''  // Preserve ALL streamed tokens (thinking + final)
         let charInterval: ReturnType<typeof setInterval> | null = null
 
         const unsubscribe = window.mathorama.onStreamToken((token: string) => {
-          charBuffer += token  // Buffer incoming tokens
+          charBuffer += token
+          fullStreamedContent += token  // Full record, never lost
         })
 
         // Reveal one character at a time from the buffer
@@ -213,9 +215,15 @@ export const useChatStore = create<ChatState>((set, get) => {
           messages: apiMessages
         })
 
-        // Clean up streaming
+        // Clean up streaming — flush remaining chars
         if (charInterval) clearInterval(charInterval)
         unsubscribe()
+        // Read current message content + append any unrevealed chars from buffer
+        const currentMsg = get().conversations
+          .find(c => c.id === convId)
+          ?.messages.find(m => m.id === assistantMessage.id)
+        const finalRevealedContent = (currentMsg?.content || '') + charBuffer
+        charBuffer = ''
 
         // Extract images from trace (tool "plot" results that are base64)
         const images: string[] = []
@@ -237,7 +245,7 @@ export const useChatStore = create<ChatState>((set, get) => {
                   m.id === assistantMessage.id
                     ? {
                         ...m,
-                        content: response.content || m.content,
+                        content: fullStreamedContent || response.content || finalRevealedContent,
                         trace: (response.trace as ToolTrace[]) || [],
                         images: images.length > 0 ? images : undefined,
                         status: 'done' as const

@@ -3,6 +3,8 @@ import { useChatStore, selectCurrentMessages } from '../store/chatStore'
 import type { Message } from '../types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
 import type { Components } from 'react-markdown'
 
 export default function ChatPanel(): JSX.Element {
@@ -266,7 +268,8 @@ function MarkdownRenderer({ content, isUser }: { content: string; isUser: boolea
 
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex]}
       components={components}
     >
       {content}

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "katex/dist/katex.min.css";
 
 /* ── Academic Manuscript Theme ──
    Light, refined, editorial. Warm ivory paper, deep indigo accents,
