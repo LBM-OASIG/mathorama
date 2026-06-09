@@ -1,8 +1,16 @@
 import { ipcMain, app } from 'electron'
 import { spawn } from 'child_process'
 import { join } from 'path'
+import { readConfig } from '../config/manager'
 
 function getPythonPath(): string {
+  const config = readConfig()
+  if (config && typeof config === 'object' && 'pythonPath' in config) {
+    const path = (config as Record<string, unknown>).pythonPath
+    if (typeof path === 'string' && path.trim().length > 0) {
+      return path.trim()
+    }
+  }
   return 'python'
 }
 

@@ -137,6 +137,11 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
   const [status, setStatus] = useState<StatusMessage | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
+  const [tab, setTab] = useState<'providers' | 'python' | 'about'>('providers')
+  const [pythonPath, setPythonPath] = useState('')
+  const [testResult, setTestResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [isTesting, setIsTesting] = useState(false)
+
   const dialogRef = useRef<HTMLDivElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -162,7 +167,6 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
     }
 
     document.addEventListener('keydown', handleKeyDown)
-    // Focus the dialog when opened
     dialogRef.current?.focus()
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
@@ -171,16 +175,27 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
 
   useEffect(() => {
     if (!isOpen) {
-      // Delay reset so animation can finish
       const timer = setTimeout(() => {
         setView('list')
         setForm(INITIAL_FORM)
         setEditingIndex(null)
         setStatus(null)
+        setTab('providers')
+        setTestResult(null)
       }, 200)
       return () => clearTimeout(timer)
     }
     return undefined
+  }, [isOpen])
+
+  // ── Load python path when dialog opens ───────────────────
+
+  useEffect(() => {
+    if (isOpen) {
+      window.mathorama.config.get('pythonPath').then((path) => {
+        setPythonPath(typeof path === 'string' ? path : 'python')
+      })
+    }
   }, [isOpen])
 
   // ── Handlers ─────────────────────────────────────────────
@@ -249,30 +264,25 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
       setStatus(null)
 
       try {
-        // Determine the provider type id
         let providerId: Provider = 'custom'
         if (trimmedName === 'openai') providerId = 'openai'
         else if (trimmedName === 'anthropic') providerId = 'anthropic'
 
-        // Save credentials via provider API
         await window.mathorama.provider.set(trimmedName, {
           apiKey: form.apiKey,
           baseUrl: form.baseUrl || undefined
         })
 
-        // Build updated providers record
         const allConfig = await window.mathorama.config.getAll()
         const storedProviders =
           (allConfig?.['providers'] as Record<string, { apiKey?: string; baseUrl?: string; models?: string[] }>) || {}
 
-        // Merge: add/update this provider in the record
         storedProviders[trimmedName] = {
           apiKey: form.apiKey,
           baseUrl: form.baseUrl || undefined,
           models: form.models
         }
 
-        // If editing and name changed, remove old entry
         if (editingIndex !== null) {
           const oldName = providers[editingIndex]?.name
           if (oldName && oldName !== trimmedName) {
@@ -280,14 +290,12 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
             try {
               await window.mathorama.provider.remove(oldName)
             } catch {
-              // ignore — old provider may not exist in backend
+              // ignore
             }
           }
         }
 
         await window.mathorama.config.set('providers', storedProviders)
-
-        // Reload providers into store
         await loadProviders()
 
         setStatus({ type: 'success', text: `Provider "${trimmedName}" saved successfully.` })
@@ -337,6 +345,41 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
     [onClose]
   )
 
+  const handleTabChange = useCallback((newTab: 'providers' | 'python' | 'about') => {
+    if (tab === 'python' && newTab !== 'python') {
+      window.mathorama.config.set('pythonPath', pythonPath)
+    }
+    setTab(newTab)
+    setTestResult(null)
+  }, [tab, pythonPath])
+
+  const handleTestConnection = useCallback(async () => {
+    setIsTesting(true)
+    setTestResult(null)
+
+    await window.mathorama.config.set('pythonPath', pythonPath)
+
+    try {
+      const result = await window.mathorama.python.execute('import sys; print(sys.version)')
+      if (result.exitCode === 0 && result.stdout.trim()) {
+        setTestResult({ type: 'success', text: result.stdout.trim() })
+      } else if (result.error) {
+        setTestResult({ type: 'error', text: result.error })
+      } else {
+        setTestResult({ type: 'error', text: result.stderr.trim() || 'Unknown error' })
+      }
+    } catch (err) {
+      setTestResult({ type: 'error', text: err instanceof Error ? err.message : 'Connection failed' })
+    } finally {
+      setIsTesting(false)
+    }
+  }, [pythonPath])
+
+  const handleClose = useCallback(() => {
+    window.mathorama.config.set('pythonPath', pythonPath)
+    onClose()
+  }, [pythonPath, onClose])
+
   // ── Get placeholder URL for preset ───────────────────────
 
   const getBaseUrlPlaceholder = (): string => {
@@ -365,18 +408,16 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-lg border border-gray-700 bg-gray-900 shadow-2xl outline-none"
+        className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-lg border border-gray-700 bg-gray-900 shadow-2xl outline-none"
         role="dialog"
         aria-modal="true"
         aria-label="Settings"
       >
         {/* ── Header ─────────────────────────────── */}
         <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-800 px-5 py-3">
-          <h2 className="text-sm font-semibold text-gray-100">
-            {view === 'list' ? 'Provider Settings' : editingIndex !== null ? 'Edit Provider' : 'Add Provider'}
-          </h2>
+          <h2 className="text-sm font-semibold text-gray-100">Settings</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="rounded p-1 text-gray-500 hover:bg-gray-800 hover:text-gray-300 transition-colors"
             aria-label="Close"
           >
@@ -388,163 +429,254 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
 
         {/* ── Body ──────────────────────────────── */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          <StatusToast status={status} />
+          {/* Tab Bar */}
+          <div className="mb-4 flex gap-2 border-b border-gray-800 pb-3">
+            <button
+              onClick={() => handleTabChange('providers')}
+              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+                tab === 'providers'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-transparent text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              Providers
+            </button>
+            <button
+              onClick={() => handleTabChange('python')}
+              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+                tab === 'python'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-transparent text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              Python
+            </button>
+            <button
+              onClick={() => handleTabChange('about')}
+              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+                tab === 'about'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-transparent text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              About
+            </button>
+          </div>
 
-          {view === 'list' ? (
-            /* ── Provider List ──────────────────── */
-            <div className="space-y-3">
-              {providers.length === 0 ? (
-                <p className="py-6 text-center text-sm text-gray-500">
-                  No providers configured yet. Add one to get started.
-                </p>
-              ) : (
-                providers.map((provider, index) => (
-                  <div
-                    key={provider.name}
-                    className="flex items-center justify-between rounded-md border border-gray-800 bg-gray-800/50 px-3 py-2.5 transition-colors hover:border-gray-700"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      {/* Status indicator */}
-                      <span
-                        className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${
-                          provider.apiKey ? 'bg-green-500' : 'bg-yellow-500'
-                        }`}
-                        title={provider.apiKey ? 'API key configured' : 'No API key'}
-                      />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-200 truncate">
-                            {provider.name}
-                          </span>
-                          <span className="flex-shrink-0 rounded bg-gray-700 px-1.5 py-0.5 text-[10px] text-gray-400 uppercase">
-                            {getProviderId(provider.name)}
-                          </span>
+          {/* ── Providers Tab ───────────────────── */}
+          {tab === 'providers' && (
+            <>
+              <StatusToast status={status} />
+
+              {view === 'list' ? (
+                <div className="space-y-3">
+                  {providers.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-gray-500">
+                      No providers configured yet. Add one to get started.
+                    </p>
+                  ) : (
+                    providers.map((provider, index) => (
+                      <div
+                        key={provider.name}
+                        className="flex items-center justify-between rounded-md border border-gray-800 bg-gray-800/50 px-3 py-2.5 transition-colors hover:border-gray-700"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span
+                            className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${
+                              provider.apiKey ? 'bg-green-500' : 'bg-yellow-500'
+                            }`}
+                            title={provider.apiKey ? 'API key configured' : 'No API key'}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-200 truncate">
+                                {provider.name}
+                              </span>
+                              <span className="flex-shrink-0 rounded bg-gray-700 px-1.5 py-0.5 text-[10px] text-gray-400 uppercase">
+                                {getProviderId(provider.name)}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 truncate">
+                              {provider.models.length} model{provider.models.length !== 1 ? 's' : ''}
+                              {provider.baseUrl ? ` · ${provider.baseUrl}` : ''}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-xs text-gray-500 truncate">
-                          {provider.models.length} model{provider.models.length !== 1 ? 's' : ''}
-                          {provider.baseUrl ? ` · ${provider.baseUrl}` : ''}
-                        </p>
-                      </div>
-                    </div>
 
-                    <div className="ml-3 flex flex-shrink-0 items-center gap-1">
-                      <button
-                        onClick={() => showEditForm(index)}
-                        className="rounded p-1 text-gray-500 hover:bg-gray-700 hover:text-gray-300 transition-colors"
-                        title="Edit provider"
-                      >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => handleDelete(index)}
-                        className="rounded p-1 text-gray-500 hover:bg-red-900/30 hover:text-red-400 transition-colors"
-                        title="Delete provider"
-                      >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
+                        <div className="ml-3 flex flex-shrink-0 items-center gap-1">
+                          <button
+                            onClick={() => showEditForm(index)}
+                            className="rounded p-1 text-gray-500 hover:bg-gray-700 hover:text-gray-300 transition-colors"
+                            title="Edit provider"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(index)}
+                            className="rounded p-1 text-gray-500 hover:bg-red-900/30 hover:text-red-400 transition-colors"
+                            title="Delete provider"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  <button
+                    onClick={showAddForm}
+                    className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-gray-700 px-4 py-3 text-sm text-gray-400 hover:border-blue-500 hover:text-blue-400 transition-colors"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Provider
+                  </button>
+                </div>
+              ) : (
+                <form ref={formRef} onSubmit={handleSave} className="space-y-4">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-400">Provider Name</label>
+                    <div className="mb-2 flex gap-2">
+                      {PRESET_PROVIDERS.map((preset) => (
+                        <button
+                          key={preset.value}
+                          type="button"
+                          onClick={() => setPresetName(preset.value)}
+                          className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+                            form.name === preset.value
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200 border border-gray-700'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
                     </div>
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                      placeholder="e.g. my-openai, anthropic"
+                      className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
                   </div>
-                ))
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-400">API Key</label>
+                    <input
+                      type="password"
+                      value={form.apiKey}
+                      onChange={(e) => setForm((prev) => ({ ...prev, apiKey: e.target.value }))}
+                      placeholder="sk-..."
+                      className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-400">
+                      Base URL <span className="text-gray-600">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={form.baseUrl}
+                      onChange={(e) => setForm((prev) => ({ ...prev, baseUrl: e.target.value }))}
+                      placeholder={getBaseUrlPlaceholder()}
+                      className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-400">Models</label>
+                    <ModelTagsInput models={form.models} onAdd={addModel} onRemove={removeModel} />
+                    <p className="mt-1 text-[10px] text-gray-600">
+                      Type a model name and press Enter to add. Press Backspace to remove last.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={backToList}
+                      className="rounded-md border border-gray-700 px-4 py-2 text-sm text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSaving}
+                      className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                    >
+                      {isSaving ? 'Saving...' : 'Save Provider'}
+                    </button>
+                  </div>
+                </form>
               )}
+            </>
+          )}
+
+          {/* ── Python Tab ──────────────────────── */}
+          {tab === 'python' && (
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-400">Python Path</label>
+                <input
+                  type="text"
+                  value={pythonPath}
+                  onChange={(e) => setPythonPath(e.target.value)}
+                  placeholder="python"
+                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <p className="mt-1 text-[10px] text-gray-500">
+                  Path to Python executable. Can be a full path (e.g. C:\Python313\python.exe) or just 'python' to use PATH.
+                </p>
+              </div>
 
               <button
-                onClick={showAddForm}
-                className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-gray-700 px-4 py-3 text-sm text-gray-400 hover:border-blue-500 hover:text-blue-400 transition-colors"
+                onClick={handleTestConnection}
+                disabled={isTesting}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Add Provider
+                {isTesting ? 'Testing...' : 'Test Connection'}
               </button>
-            </div>
-          ) : (
-            /* ── Add / Edit Form ────────────────── */
-            <form ref={formRef} onSubmit={handleSave} className="space-y-4">
-              {/* Provider Name */}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-400">Provider Name</label>
-                <div className="mb-2 flex gap-2">
-                  {PRESET_PROVIDERS.map((preset) => (
-                    <button
-                      key={preset.value}
-                      type="button"
-                      onClick={() => setPresetName(preset.value)}
-                      className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
-                        form.name === preset.value
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200 border border-gray-700'
-                      }`}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
+
+              {testResult && (
+                <div
+                  className={`rounded-md px-3 py-2 text-xs font-medium ${
+                    testResult.type === 'success'
+                      ? 'border border-green-800 bg-green-900/30 text-green-400'
+                      : 'border border-red-800 bg-red-900/30 text-red-400'
+                  }`}
+                >
+                  {testResult.text}
                 </div>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g. my-openai, anthropic"
-                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
+              )}
+            </div>
+          )}
 
-              {/* API Key */}
+          {/* ── About Tab ──────────────────────── */}
+          {tab === 'about' && (
+            <div className="space-y-3 text-sm text-gray-400">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-400">API Key</label>
-                <input
-                  type="password"
-                  value={form.apiKey}
-                  onChange={(e) => setForm((prev) => ({ ...prev, apiKey: e.target.value }))}
-                  placeholder="sk-..."
-                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
+                <span className="font-medium text-gray-200">Mathorama</span>
+                <span className="ml-2 rounded bg-gray-700 px-1.5 py-0.5 text-[10px] text-gray-400">v0.1.0</span>
               </div>
-
-              {/* Base URL */}
+              <p className="text-gray-500">Math Agent Platform - AI-powered mathematics assistant</p>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-400">
-                  Base URL <span className="text-gray-600">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.baseUrl}
-                  onChange={(e) => setForm((prev) => ({ ...prev, baseUrl: e.target.value }))}
-                  placeholder={getBaseUrlPlaceholder()}
-                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
+                <p className="mb-1 font-medium text-gray-300 text-xs uppercase tracking-wider">Tech Stack</p>
+                <p className="text-gray-500">Electron, React, TypeScript, Python (SymPy/NumPy/Matplotlib)</p>
               </div>
-
-              {/* Models */}
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-400">Models</label>
-                <ModelTagsInput models={form.models} onAdd={addModel} onRemove={removeModel} />
-                <p className="mt-1 text-[10px] text-gray-600">
-                  Type a model name and press Enter to add. Press Backspace to remove last.
-                </p>
+                <p className="mb-1 font-medium text-gray-300 text-xs uppercase tracking-wider">Required Python Packages</p>
+                <code className="block rounded bg-gray-800 px-3 py-2 text-xs text-gray-400">
+                  pip install sympy matplotlib numpy
+                </code>
               </div>
-
-              {/* Form Actions */}
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={backToList}
-                  className="rounded-md border border-gray-700 px-4 py-2 text-sm text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
-                >
-                  {isSaving ? 'Saving...' : 'Save Provider'}
-                </button>
-              </div>
-            </form>
+            </div>
           )}
         </div>
       </div>
