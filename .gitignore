@@ -1,0 +1,23 @@
+node_modules/
+out/
+dist/
+.vite/
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+*.swp
+*.swo
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
