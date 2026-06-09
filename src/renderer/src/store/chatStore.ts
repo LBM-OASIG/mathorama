@@ -161,25 +161,37 @@ export const useChatStore = create<ChatState>((set, get) => {
         const resolvedProvider = provider || state.selectedProvider || 'openai'
         const resolvedModel = model || state.selectedModel || 'gpt-4'
 
-        // Subscribe to streaming tokens before calling agent.run
+        // ── Character-by-character streaming ──────────────
+        let charBuffer = ''
+        let charInterval: ReturnType<typeof setInterval> | null = null
+
         const unsubscribe = window.mathorama.onStreamToken((token: string) => {
-          set((s) => ({
-            conversations: s.conversations.map((c) => {
-              if (c.id === convId) {
-                return {
-                  ...c,
-                  messages: c.messages.map((m) =>
-                    m.id === assistantMessage.id
-                      ? { ...m, content: m.content + token, status: 'streaming' as const }
-                      : m
-                  ),
-                  updatedAt: Date.now()
-                }
-              }
-              return c
-            })
-          }))
+          charBuffer += token  // Buffer incoming tokens
         })
+
+        // Reveal one character at a time from the buffer
+        charInterval = setInterval(() => {
+          if (charBuffer.length > 0) {
+            const char = charBuffer[0]
+            charBuffer = charBuffer.slice(1)
+            set((s) => ({
+              conversations: s.conversations.map((c) => {
+                if (c.id === convId) {
+                  return {
+                    ...c,
+                    messages: c.messages.map((m) =>
+                      m.id === assistantMessage.id
+                        ? { ...m, content: m.content + char, status: 'streaming' as const }
+                        : m
+                    ),
+                    updatedAt: Date.now()
+                  }
+                }
+                return c
+              })
+            }))
+          }
+        }, 15)  // ~67 chars per second
 
         // Call the agent loop via preload bridge
         const response = await window.mathorama.agent.run({
@@ -188,7 +200,8 @@ export const useChatStore = create<ChatState>((set, get) => {
           messages: apiMessages
         })
 
-        // Unsubscribe from streaming
+        // Clean up streaming
+        if (charInterval) clearInterval(charInterval)
         unsubscribe()
 
         // Extract images from trace (tool "plot" results that are base64)
