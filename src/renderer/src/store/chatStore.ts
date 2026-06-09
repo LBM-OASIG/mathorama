@@ -279,7 +279,8 @@ export const useChatStore = create<ChatState>((set, get) => {
                 return c
               }),
               streamingContent: '',
-              loadingConversationId: null
+              // Only clear loading if this conversation is the one being tracked
+              loadingConversationId: store.loadingConversationId === convId ? null : store.loadingConversationId
             }))
           }
         }, 50)
@@ -301,7 +302,7 @@ export const useChatStore = create<ChatState>((set, get) => {
             return c
           }),
           streamingContent: '',
-          loadingConversationId: null,
+          loadingConversationId: s.loadingConversationId === convId ? null : s.loadingConversationId,
           error: errorMsg
         }))
       }
