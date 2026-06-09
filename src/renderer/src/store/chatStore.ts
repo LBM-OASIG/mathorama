@@ -193,19 +193,28 @@ export const useChatStore = create<ChatState>((set, get) => {
 
         // ── Character-by-character streaming ──────────────
         let charBuffer = ''
-        let fullStreamedContent = ''  // Preserve ALL streamed tokens (thinking + final)
+        let reasoningBuffer = ''
+        let fullStreamedContent = ''
+        let fullStreamedReasoning = ''
         let charInterval: ReturnType<typeof setInterval> | null = null
 
         // Keep track of which conversation these tokens belong to
         const thisConvId = convId
         let streamingStarted = false
-        const unsubscribe = window.mathorama.onStreamToken((data: { convId: string; token: string }) => {
+        const unsubscribe = window.mathorama.onStreamToken((data: { convId: string; token?: string; reasoningToken?: string }) => {
           // Only accept tokens for this conversation — prevents cross-conversation mixing
           if (data.convId !== thisConvId) return
-          charBuffer += data.token
-          fullStreamedContent += data.token  // Full record, never lost
 
-          // Switch to streaming status on first token, so UI hides "..." ASAP
+          if (data.token) {
+            charBuffer += data.token
+            fullStreamedContent += data.token
+          }
+          if (data.reasoningToken) {
+            reasoningBuffer += data.reasoningToken
+            fullStreamedReasoning += data.reasoningToken
+          }
+
+          // Switch to streaming status on first token (content or reasoning), so UI hides "..." ASAP
           if (!streamingStarted) {
             streamingStarted = true
             set((s) => ({
@@ -215,7 +224,7 @@ export const useChatStore = create<ChatState>((set, get) => {
                     ...c,
                     messages: c.messages.map((m) =>
                       m.id === assistantMessage.id
-                        ? { ...m, status: 'streaming' as const }
+                        ? { ...m, status: 'streaming' as const, reasoning: fullStreamedReasoning || undefined }
                         : m
                     ),
                     updatedAt: Date.now()
@@ -229,10 +238,12 @@ export const useChatStore = create<ChatState>((set, get) => {
 
         // Reveal chunks from the buffer (LaTeX blocks whole, else 3 chars at a time)
         charInterval = setInterval(() => {
-          if (charBuffer.length > 0) {
+          if (charBuffer.length > 0 || reasoningBuffer.length > 0) {
             const chunkSize = getChunkSize(charBuffer)
             const chunk = charBuffer.slice(0, chunkSize)
             charBuffer = charBuffer.slice(chunkSize)
+            const reasoningChunk = reasoningBuffer
+            reasoningBuffer = ''
             set((s) => ({
               conversations: s.conversations.map((c) => {
                 if (c.id === convId) {
@@ -240,7 +251,14 @@ export const useChatStore = create<ChatState>((set, get) => {
                     ...c,
                     messages: c.messages.map((m) =>
                       m.id === assistantMessage.id
-                        ? { ...m, content: m.content + chunk, status: 'streaming' as const }
+                        ? {
+                            ...m,
+                            content: m.content + chunk,
+                            reasoning: m.reasoning
+                              ? m.reasoning + reasoningChunk
+                              : reasoningChunk || undefined,
+                            status: 'streaming' as const
+                          }
                         : m
                     ),
                     updatedAt: Date.now()
@@ -263,6 +281,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         unsubscribe()  // Stop receiving new tokens from IPC
 
         const fullContent = fullStreamedContent || response.content || ''
+        const fullReasoning = fullStreamedReasoning || (response as { reasoning?: string }).reasoning || ''
 
         // Append any unrevealed chars to the buffer so the interval keeps flushing
         const revealedSoFar = get().conversations
@@ -272,6 +291,9 @@ export const useChatStore = create<ChatState>((set, get) => {
         const leftover = fullContent.slice(revealedSoFar.length)
         if (leftover.length > 0) {
           charBuffer += leftover
+        }
+        if (reasoningBuffer.length > 0) {
+          // reasoning buffer will be flushed by the interval
         }
 
         // Detect when all chars have been revealed, then mark as 'done'
@@ -285,6 +307,7 @@ export const useChatStore = create<ChatState>((set, get) => {
             clearInterval(doneCheck)
             if (charInterval) clearInterval(charInterval)
             charBuffer = ''
+            reasoningBuffer = ''
 
             // Extract images from trace
             const images: string[] = []
@@ -305,6 +328,8 @@ export const useChatStore = create<ChatState>((set, get) => {
                       m.id === assistantMessage.id
                         ? {
                             ...m,
+                            content: fullContent,
+                            reasoning: fullReasoning || undefined,
                             trace: (response.trace as ToolTrace[]) || [],
                             images: images.length > 0 ? images : undefined,
                             status: 'done' as const

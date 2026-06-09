@@ -8,6 +8,8 @@ export interface Message {
   id: string
   role: 'user' | 'assistant' | 'system' | 'tool'
   content: string
+  /** Native reasoning chain from o1/o3/DeepSeek-R1/Claude thinking. Empty for non-reasoning models. */
+  reasoning?: string
   timestamp: number
   status?: 'sending' | 'streaming' | 'done' | 'error'
   trace?: ToolTrace[]

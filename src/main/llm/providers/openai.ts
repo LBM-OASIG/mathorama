@@ -3,6 +3,7 @@ import { LLMProvider, LLMChatParams, LLMChatResult, LLMProviderConfig } from './
 interface OpenAIChoice {
   message: {
     content: string | null
+    reasoning_content?: string
     tool_calls?: Array<{
       id: string
       type: string
@@ -66,21 +67,25 @@ export class OpenAIProvider implements LLMProvider {
     const data = await response.json() as OpenAIResponse
     const message = data.choices[0].message
 
-    if (message.tool_calls && message.tool_calls.length > 0) {
-      return {
-        content: message.content ?? undefined,
-        tool_calls: message.tool_calls.map(tc => ({
-          id: tc.id,
-          type: tc.type,
-          function: {
-            name: tc.function.name,
-            arguments: tc.function.arguments
-          }
-        }))
-      }
+    const result: LLMChatResult = {
+      content: message.content ?? ''
+    }
+    if (message.reasoning_content) {
+      result.reasoning = message.reasoning_content
     }
 
-    return { content: message.content ?? '' }
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      result.tool_calls = message.tool_calls.map(tc => ({
+        id: tc.id,
+        type: tc.type,
+        function: {
+          name: tc.function.name,
+          arguments: tc.function.arguments
+        }
+      }))
+    }
+
+    return result
   }
 
   private async chatStream(params: LLMChatParams): Promise<LLMChatResult> {
@@ -113,6 +118,7 @@ export class OpenAIProvider implements LLMProvider {
     const decoder = new TextDecoder()
     let buffer = ''
     let fullContent = ''
+    let fullReasoning = ''
     let toolCalls: Array<{ id: string; type: string; function: { name: string; arguments: string } }> | null = null
 
     while (true) {
@@ -140,6 +146,11 @@ export class OpenAIProvider implements LLMProvider {
             params.onToken!(delta.content)
           }
 
+          if (delta.reasoning_content) {
+            fullReasoning += delta.reasoning_content
+            params.onReasoningToken?.(delta.reasoning_content)
+          }
+
           if (delta.tool_calls) {
             for (const tc of delta.tool_calls) {
               if (!toolCalls) toolCalls = []
@@ -158,6 +169,7 @@ export class OpenAIProvider implements LLMProvider {
 
     const result: LLMChatResult = {}
     if (fullContent) result.content = fullContent
+    if (fullReasoning) result.reasoning = fullReasoning
     if (toolCalls && toolCalls.length > 0 && toolCalls[0].id) {
       result.tool_calls = toolCalls
     }

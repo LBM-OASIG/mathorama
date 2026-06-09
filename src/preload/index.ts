@@ -34,8 +34,8 @@ const api = {
     list: () => ipcRenderer.invoke('agent:list'),
     save: (agents: unknown[]) => ipcRenderer.invoke('agent:save', agents)
   },
-  onStreamToken: (callback: (data: { convId: string; token: string }) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: { convId: string; token: string }) => callback(data)
+  onStreamToken: (callback: (data: { convId: string; token?: string; reasoningToken?: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { convId: string; token?: string; reasoningToken?: string }) => callback(data)
     ipcRenderer.on('agent:stream-token', handler)
     return () => ipcRenderer.removeListener('agent:stream-token', handler)
   },

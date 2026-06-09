@@ -5,6 +5,12 @@ interface AnthropicTextBlock {
   text: string
 }
 
+interface AnthropicThinkingBlock {
+  type: 'thinking'
+  thinking: string
+  signature: string
+}
+
 interface AnthropicToolUseBlock {
   type: 'tool_use'
   id: string
@@ -12,7 +18,7 @@ interface AnthropicToolUseBlock {
   input: Record<string, unknown>
 }
 
-type AnthropicContentBlock = AnthropicTextBlock | AnthropicToolUseBlock
+type AnthropicContentBlock = AnthropicTextBlock | AnthropicThinkingBlock | AnthropicToolUseBlock
 
 interface AnthropicResponse {
   content: AnthropicContentBlock[]
@@ -75,11 +81,14 @@ export class AnthropicProvider implements LLMProvider {
 
     const data = await response.json() as AnthropicResponse
     const content: string[] = []
+    const reasoning: string[] = []
     const toolCalls: ToolCall[] = []
 
     for (const block of data.content) {
       if (block.type === 'text') {
         content.push(block.text)
+      } else if (block.type === 'thinking') {
+        reasoning.push(block.thinking)
       } else if (block.type === 'tool_use') {
         toolCalls.push({
           id: block.id,
@@ -95,6 +104,9 @@ export class AnthropicProvider implements LLMProvider {
     const result: LLMChatResult = {}
     if (content.length > 0) {
       result.content = content.join('')
+    }
+    if (reasoning.length > 0) {
+      result.reasoning = reasoning.join('')
     }
     if (toolCalls.length > 0) {
       result.tool_calls = toolCalls
@@ -174,6 +186,8 @@ export class AnthropicProvider implements LLMProvider {
     const decoder = new TextDecoder()
     let buffer = ''
     let fullContent = ''
+    let fullReasoning = ''
+    let inThinkingBlock = false
     const toolCalls: Array<{ id: string; type: string; function: { name: string; arguments: string } }> = []
 
     while (true) {
@@ -192,10 +206,22 @@ export class AnthropicProvider implements LLMProvider {
           const data = trimmed.slice(6)
           try {
             const parsed = JSON.parse(data)
-            if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
-              const text = parsed.delta.text
-              fullContent += text
-              params.onToken!(text)
+            if (parsed.type === 'content_block_start' && parsed.content_block?.type === 'thinking') {
+              inThinkingBlock = true
+            }
+            if (parsed.type === 'content_block_stop') {
+              inThinkingBlock = false
+            }
+            if (parsed.type === 'content_block_delta') {
+              if (parsed.delta?.type === 'text_delta') {
+                const text = parsed.delta.text
+                fullContent += text
+                params.onToken!(text)
+              } else if (parsed.delta?.type === 'thinking_delta') {
+                const thinking = parsed.delta.thinking
+                fullReasoning += thinking
+                params.onReasoningToken?.(thinking)
+              }
             }
             if (parsed.type === 'content_block_start' && parsed.content_block?.type === 'tool_use') {
               toolCalls.push({
@@ -218,6 +244,7 @@ export class AnthropicProvider implements LLMProvider {
 
     const result: LLMChatResult = {}
     if (fullContent) result.content = fullContent
+    if (fullReasoning) result.reasoning = fullReasoning
     if (toolCalls.length > 0) result.tool_calls = toolCalls
     return result
   }

@@ -14,6 +14,8 @@ export interface ToolTrace {
 
 export interface AgentResult {
   content: string
+  /** Native reasoning chain from the model's internal thinking (o1/o3, DeepSeek-R1, Claude thinking). */
+  reasoning?: string
   trace: ToolTrace[]
 }
 
@@ -21,6 +23,7 @@ export async function runAgent(params: {
   agent: AgentConfig
   messages: Array<{ role: string; content: string }>
   onToken?: (token: string) => void
+  onReasoningToken?: (token: string) => void
 }): Promise<AgentResult> {
   const trace: ToolTrace[] = []
 
@@ -32,7 +35,8 @@ export async function runAgent(params: {
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const llmParams = buildLLMParams(params.agent, msgs, {
       stream: true,
-      onToken: params.onToken
+      onToken: params.onToken,
+      onReasoningToken: params.onReasoningToken
     })
 
     const response = await llmGateway.chatWithTools(params.agent.provider, llmParams)
@@ -67,6 +71,7 @@ export async function runAgent(params: {
     } else {
       return {
         content: response.content ?? '',
+        reasoning: response.reasoning,
         trace
       }
     }

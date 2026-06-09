@@ -14,6 +14,9 @@ export function registerAgentHandlers(): void {
         messages: params.messages,
         onToken: (token: string) => {
           event.sender.send('agent:stream-token', { convId: params.convId, token })
+        },
+        onReasoningToken: (token: string) => {
+          event.sender.send('agent:stream-token', { convId: params.convId, reasoningToken: token })
         }
       })
       return result

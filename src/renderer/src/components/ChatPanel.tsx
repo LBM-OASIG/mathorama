@@ -323,77 +323,29 @@ function MarkdownRenderer({ content, isUser }: { content: string; isUser: boolea
   )
 }
 
-// ── Split Thinking / Answer ───────────────────────────────
+// ── Reasoning Panel ───────────────────────────────────────
 
-function splitThinkingAnswer(content: string): { thinking: string | null; answer: string | null } {
-  // Find "## Answer" anywhere. Everything before is thinking, everything after is answer.
-  // Strip optional "## Thinking" heading from the thinking part.
-
-  const answerMatch = content.match(/([\s\S]*?)##\s*Answer\b([\s\S]*)/)
-
-  if (!answerMatch) {
-    // No ## Answer — look for just ## Thinking at line start
-    const thinkingMatch = content.match(/^##\s*Thinking\s*\n?([\s\S]*)/m)
-    return {
-      thinking: thinkingMatch ? thinkingMatch[1].trim() : null,
-      answer: null,
-    }
-  }
-
-  // answerMatch[1] = everything before ## Answer (thinking)
-  // answerMatch[2] = everything after ## Answer (answer body)
-  const beforeAnswer = answerMatch[1].trim()
-  const afterAnswer = answerMatch[2].trim()
-
-  // Strip optional "## Thinking" heading
-  const thinkingContent = beforeAnswer.replace(/^##\s*Thinking\s*\n?/m, '').trim()
-
-  return {
-    thinking: thinkingContent || null,
-    answer: afterAnswer || null,
-  }
-}
-
-function ThinkingAnswerRenderer({ content, isUser }: { content: string; isUser: boolean }): JSX.Element {
-  const { thinking, answer } = splitThinkingAnswer(content)
-
-  // No thinking/answer structure found — render normally
-  if (!thinking && !answer) {
-    return <MarkdownRenderer content={content} isUser={isUser} />
-  }
-
+function ReasoningPanel({ reasoning }: { reasoning: string }): JSX.Element {
   return (
-    <>
-      {/* Thinking section — collapsible, always collapsed by default */}
-      {thinking && (
-        <details className="group mb-4">
-          <summary className="flex cursor-pointer select-none items-center gap-2 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-faint hover:text-ink-muted transition-colors">
-            <svg
-              className="h-3 w-3 transition-transform group-open:rotate-90"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-            Reasoning
-          </summary>
-          <div className="mt-2 border-l-2 border-accent/15 pl-4">
-            <div className="text-[13px] leading-relaxed text-ink-muted">
-              <MarkdownRenderer content={thinking} isUser={isUser} />
-            </div>
-          </div>
-        </details>
-      )}
-
-      {/* Answer section — main content */}
-      {answer && (
-        <div className="font-body text-[14px] leading-relaxed">
-          <MarkdownRenderer content={answer} isUser={isUser} />
+    <details className="group mb-4">
+      <summary className="flex cursor-pointer select-none items-center gap-2 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-faint hover:text-ink-muted transition-colors">
+        <svg
+          className="h-3 w-3 transition-transform group-open:rotate-90"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        Reasoning
+      </summary>
+      <div className="mt-2 border-l-2 border-accent/15 pl-4">
+        <div className="text-[13px] leading-relaxed text-ink-muted">
+          <MarkdownRenderer content={reasoning} isUser={false} />
         </div>
-      )}
-    </>
+      </div>
+    </details>
   )
 }
 
@@ -441,12 +393,11 @@ function MessageBubble({ message, index }: { message: Message; index: number }):
 
           {/* Content */}
           <div className="font-body text-[14px] leading-relaxed">
+            {!isUser && message.reasoning && (
+              <ReasoningPanel reasoning={message.reasoning} />
+            )}
             {message.content ? (
-              isUser || isStreaming ? (
-                <MarkdownRenderer content={message.content} isUser={isUser} />
-              ) : (
-                <ThinkingAnswerRenderer content={message.content} isUser={false} />
-              )
+              <MarkdownRenderer content={message.content} isUser={isUser} />
             ) : isStreaming ? null : (
               '...'
             )}

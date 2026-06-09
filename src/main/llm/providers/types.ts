@@ -20,6 +20,8 @@ export interface LLMChatParams {
   }>
   stream?: boolean
   onToken?: (token: string) => void
+  /** Called for each reasoning token from native reasoning models (o1/o3, DeepSeek-R1, Claude thinking). */
+  onReasoningToken?: (token: string) => void
   temperature?: number
   maxTokens?: number
   /** Provider-specific overrides merged into the request body last. */
@@ -28,6 +30,8 @@ export interface LLMChatParams {
 
 export interface LLMChatResult {
   content?: string
+  /** Native reasoning chain, separate from content. */
+  reasoning?: string
   tool_calls?: ToolCall[]
 }
 
