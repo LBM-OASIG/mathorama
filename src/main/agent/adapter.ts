@@ -39,11 +39,21 @@ export function buildLLMParams(
   // ── max_tokens → model-specific field ─────────────
   let maxTokens: number | undefined = agent.params.max_tokens
 
-  // DeepSeek models have a hard 8192 output-token ceiling
+  // DeepSeek model output limits
+  // - R1 (deepseek-reasoner): max 64K (default 32K), includes reasoning_content + content
+  // - V4 (deepseek-v4-*): max 384K
   const isDeepSeek = /deepseek/i.test(agent.model)
-  if (isDeepSeek && maxTokens !== undefined && maxTokens > 8192) {
-    console.warn(`[Adapter] DeepSeek model '${agent.model}' max_tokens capped from ${maxTokens} to 8192 (API limit)`)
-    maxTokens = 8192
+  const isR1 = /deepseek-reasoner|deepseek-r1/i.test(agent.model)
+  if (isDeepSeek) {
+    const limit = isR1 ? 64000 : 384000
+    if (maxTokens === undefined) {
+      // R1 defaults to only 32K; bump to max to avoid truncation
+      maxTokens = limit
+      console.log(`[Adapter] DeepSeek model '${agent.model}' auto-set max_tokens to ${limit}`)
+    } else if (maxTokens > limit) {
+      console.warn(`[Adapter] DeepSeek model '${agent.model}' max_tokens capped from ${maxTokens} to ${limit} (API limit)`)
+      maxTokens = limit
+    }
   }
 
   if (family === 'openai-reasoning' && agent.params.max_tokens !== undefined) {
