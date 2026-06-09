@@ -215,51 +215,68 @@ export const useChatStore = create<ChatState>((set, get) => {
           messages: apiMessages
         })
 
-        // Clean up streaming — flush remaining chars
-        if (charInterval) clearInterval(charInterval)
-        unsubscribe()
-        // Read current message content + append any unrevealed chars from buffer
-        const currentMsg = get().conversations
+        // Continue streaming remaining content char-by-char (even after API done)
+        unsubscribe()  // Stop receiving new tokens from IPC
+
+        const fullContent = fullStreamedContent || response.content || ''
+
+        // Append any unrevealed chars to the buffer so the interval keeps flushing
+        const revealedSoFar = get().conversations
           .find(c => c.id === convId)
           ?.messages.find(m => m.id === assistantMessage.id)
-        const finalRevealedContent = (currentMsg?.content || '') + charBuffer
-        charBuffer = ''
-
-        // Extract images from trace (tool "plot" results that are base64)
-        const images: string[] = []
-        if (response.trace) {
-          for (const tr of response.trace) {
-            if (tr.tool === 'plot' && typeof tr.result === 'string' && tr.result.startsWith('data:image')) {
-              images.push(tr.result)
-            }
-          }
+          ?.content || ''
+        const leftover = fullContent.slice(revealedSoFar.length)
+        if (leftover.length > 0) {
+          charBuffer += leftover
         }
 
-        // Update assistant message with final content, trace, and images
-        set((s) => ({
-          conversations: s.conversations.map((c) => {
-            if (c.id === convId) {
-              return {
-                ...c,
-                messages: c.messages.map((m) =>
-                  m.id === assistantMessage.id
-                    ? {
-                        ...m,
-                        content: fullStreamedContent || response.content || finalRevealedContent,
-                        trace: (response.trace as ToolTrace[]) || [],
-                        images: images.length > 0 ? images : undefined,
-                        status: 'done' as const
-                      }
-                    : m
-                ),
-                updatedAt: Date.now()
+        // Detect when all chars have been revealed, then mark as 'done'
+        const doneCheck = setInterval(() => {
+          const s = get()
+          const msg = s.conversations
+            .find(c => c.id === convId)
+            ?.messages.find(m => m.id === assistantMessage.id)
+          // All chars revealed when buffer is empty AND content length matches full
+          if (msg && charBuffer.length === 0 && (msg.content || '').length >= fullContent.length) {
+            clearInterval(doneCheck)
+            if (charInterval) clearInterval(charInterval)
+            charBuffer = ''
+
+            // Extract images from trace
+            const images: string[] = []
+            if (response.trace) {
+              for (const tr of response.trace) {
+                if (tr.tool === 'plot' && typeof tr.result === 'string' && tr.result.startsWith('data:image')) {
+                  images.push(tr.result)
+                }
               }
             }
-            return c
-          }),
-          streamingContent: '',
-          isLoading: false
-        }))
+
+            set((store) => ({
+              conversations: store.conversations.map((c) => {
+                if (c.id === convId) {
+                  return {
+                    ...c,
+                    messages: c.messages.map((m) =>
+                      m.id === assistantMessage.id
+                        ? {
+                            ...m,
+                            trace: (response.trace as ToolTrace[]) || [],
+                            images: images.length > 0 ? images : undefined,
+                            status: 'done' as const
+                          }
+                        : m
+                    ),
+                    updatedAt: Date.now()
+                  }
+                }
+                return c
+              }),
+              streamingContent: '',
+              isLoading: false
+            }))
+          }
+        }, 50)
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Unknown error'
         set((s) => ({
