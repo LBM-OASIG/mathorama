@@ -40,7 +40,8 @@ interface ChatState {
   selectedModel: string | null
   agents: AgentConfig[]
   selectedAgentName: string
-  isLoading: boolean
+  /** Which conversation is currently loading (streaming a response). Only one at a time. */
+  loadingConversationId: string | null
   error: string | null
   _loaded: boolean
 
@@ -150,7 +151,7 @@ export const useChatStore = create<ChatState>((set, get) => {
           return c
         }),
         streamingContent: '',
-        isLoading: true,
+        loadingConversationId: convId,
         error: null
       }))
 
@@ -273,7 +274,7 @@ export const useChatStore = create<ChatState>((set, get) => {
                 return c
               }),
               streamingContent: '',
-              isLoading: false
+              loadingConversationId: null
             }))
           }
         }, 50)
@@ -295,7 +296,7 @@ export const useChatStore = create<ChatState>((set, get) => {
             return c
           }),
           streamingContent: '',
-          isLoading: false,
+          loadingConversationId: null,
           error: errorMsg
         }))
       }

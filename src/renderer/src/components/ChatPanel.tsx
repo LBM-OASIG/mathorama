@@ -9,7 +9,9 @@ import type { Components } from 'react-markdown'
 
 export default function ChatPanel(): JSX.Element {
   const messages = useChatStore(selectCurrentMessages)
-  const isLoading = useChatStore((s) => s.isLoading)
+  const loadingConversationId = useChatStore((s) => s.loadingConversationId)
+  const currentConversationId = useChatStore((s) => s.currentConversationId)
+  const isLoading = loadingConversationId !== null && loadingConversationId === currentConversationId
   const sendMessage = useChatStore((s) => s.sendMessage)
   const clearConversation = useChatStore((s) => s.clearConversation)
   const error = useChatStore((s) => s.error)
