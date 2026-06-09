@@ -15,7 +15,6 @@ export default function ChatPanel(): JSX.Element {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
@@ -27,11 +26,8 @@ export default function ChatPanel(): JSX.Element {
   const handleSend = useCallback(async () => {
     const trimmed = input.trim()
     if (!trimmed || isLoading) return
-
     setInput('')
     await sendMessage(trimmed, selectedProvider || undefined, selectedModel || undefined)
-
-    // Focus back on input after sending
     inputRef.current?.focus()
   }, [input, isLoading, sendMessage, selectedProvider, selectedModel])
 
@@ -46,43 +42,72 @@ export default function ChatPanel(): JSX.Element {
   )
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-gray-950">
+    <div className="flex h-full flex-col bg-paper">
       {/* Chat header */}
-      <div className="flex h-8 flex-shrink-0 items-center justify-between border-b border-gray-800 bg-gray-900 px-3">
-        <span className="text-xs font-medium text-blue-400">Chat</span>
-        <button
-          onClick={clearConversation}
-          className="rounded px-2 py-0.5 text-xs text-gray-500 hover:bg-gray-800 hover:text-gray-300 transition-colors"
-          title="Clear conversation"
-        >
-          Clear
-        </button>
+      <div className="flex h-9 flex-shrink-0 items-center justify-between border-b border-border px-5 bg-surface/50">
+        <span className="font-mono text-[10px] font-medium uppercase tracking-[0.15em] text-ink-faint">
+          Dialogue
+        </span>
+        {messages.length > 0 && (
+          <button
+            onClick={clearConversation}
+            className="rounded-sm px-2 py-0.5 font-mono text-[10px] text-ink-faint hover:text-error transition-colors"
+            title="Clear conversation"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+      <div className="flex-1 overflow-y-auto px-5 py-5">
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center">
-            <div className="text-center">
-              <div className="mb-2 text-3xl">∑</div>
-              <p className="text-sm text-gray-500">Math Agent Platform</p>
-              <p className="mt-1 text-xs text-gray-600">Ask a math question to get started.</p>
+            <div className="text-center animate-fade-in">
+              {/* Decorative Sigma */}
+              <div className="mb-4 font-display text-5xl italic text-accent/20 select-none">
+                &#x2211;
+              </div>
+              <h2 className="mb-2 font-display text-xl font-medium italic text-ink-soft">
+                Mathematics awaits
+              </h2>
+              <p className="font-body text-sm text-ink-muted leading-relaxed max-w-[280px] mx-auto">
+                Pose a question, and let the agent work through it with the precision of Python and SymPy.
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                {['Solve x² + 3x - 4 = 0', 'Plot sin(x) from 0 to 2π', '∫ e^x dx'].map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => {
+                      setInput(q)
+                      inputRef.current?.focus()
+                    }}
+                    className="rounded-sm border border-border-warm bg-surface px-3 py-1.5 font-mono text-[11px] text-ink-muted hover:border-accent-light hover:text-accent transition-all"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+          <div className="space-y-5 max-w-3xl mx-auto">
+            {messages.map((msg, idx) => (
+              <MessageBubble key={msg.id} message={msg} index={idx} />
             ))}
             {isLoading && messages[messages.length - 1]?.status === 'sending' && (
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-400" />
-                Thinking...
+              <div className="flex items-center gap-3 py-2 animate-fade-in">
+                <div className="flex items-center gap-1">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent animate-pulse-dot" />
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent animate-pulse-dot" style={{ animationDelay: '0.2s' }} />
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent animate-pulse-dot" style={{ animationDelay: '0.4s' }} />
+                </div>
+                <span className="font-mono text-[11px] text-ink-faint italic">Thinking...</span>
               </div>
             )}
             {error && (
-              <div className="rounded border border-red-800 bg-red-900/30 px-3 py-2 text-xs text-red-400">
-                {error}
+              <div className="rounded-sm border border-error-border bg-error-bg px-4 py-3 animate-fade-in">
+                <p className="font-mono text-[11px] text-error leading-relaxed">{error}</p>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -91,29 +116,39 @@ export default function ChatPanel(): JSX.Element {
       </div>
 
       {/* Input area */}
-      <div className="flex-shrink-0 border-t border-gray-800 bg-gray-900/80 p-3">
-        <div className="flex gap-2">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message... (Shift+Enter for new line)"
-            rows={2}
-            disabled={isLoading}
-            className="flex-1 resize-none rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
-            className="flex-shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
-          >
-            Send
-          </button>
+      <div className="flex-shrink-0 border-t border-border bg-surface/80 backdrop-blur-sm p-4">
+        <div className="max-w-3xl mx-auto">
+          <div className="flex gap-3 items-end">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask something mathematical..."
+              rows={1}
+              disabled={isLoading}
+              className="flex-1 resize-none rounded-sm border border-border-warm bg-surface px-4 py-2.5 font-body text-[14px] leading-relaxed text-ink placeholder-ink-faint focus:border-accent-light focus:outline-none disabled:opacity-50 min-h-[40px] max-h-[160px]"
+              style={{ overflow: 'hidden' }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement
+                target.style.height = 'auto'
+                target.style.height = target.scrollHeight + 'px'
+              }}
+            />
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading}
+              className="flex-shrink-0 flex items-center justify-center rounded-sm bg-accent px-5 py-2.5 font-mono text-[12px] font-medium text-white hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-accent transition-all"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
+          </div>
+          <p className="mt-2 text-center font-mono text-[9px] text-ink-faint uppercase tracking-[0.1em]">
+            Enter to send · Shift+Enter for a new line
+          </p>
         </div>
-        <p className="mt-1 text-[10px] text-gray-600">
-          Enter to send · Shift+Enter for newline
-        </p>
       </div>
     </div>
   )
@@ -121,82 +156,117 @@ export default function ChatPanel(): JSX.Element {
 
 // ── Message Bubble ────────────────────────────────────────
 
-function MessageBubble({ message }: { message: Message }): JSX.Element {
+function MessageBubble({ message, index }: { message: Message; index: number }): JSX.Element {
   const isUser = message.role === 'user'
   const isError = message.status === 'error'
   const isStreaming = message.status === 'streaming'
   const [traceOpen, setTraceOpen] = useState(false)
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div
+      className={`flex ${isUser ? 'justify-end' : 'justify-start'} animate-fade-in-up`}
+      style={{ animationDelay: `${Math.min(index * 80, 400)}ms` }}
+    >
       <div
-        className={`max-w-[85%] rounded-lg px-4 py-2.5 text-sm leading-relaxed ${
+        className={`relative max-w-[82%] ${
           isUser
-            ? 'bg-blue-600 text-white'
+            ? 'bg-accent text-white'
             : isError
-              ? 'border border-red-800 bg-red-900/20 text-red-300'
-              : 'bg-gray-800 text-gray-200'
-        }`}
+              ? 'border border-error-border bg-error-bg text-error'
+              : 'bg-surface border border-border text-ink-soft'
+        } ${isUser ? 'rounded-sm rounded-br-none' : 'rounded-sm rounded-bl-none'}`}
       >
-        {/* Role label */}
-        <div
-          className={`mb-1 text-[10px] font-medium uppercase tracking-wider ${
-            isUser ? 'text-blue-200' : 'text-gray-500'
-          }`}
-        >
-          {isUser ? 'You' : 'Assistant'}
-          {isStreaming && <span className="ml-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400" />}
-        </div>
-
-        {/* Content */}
-        <div className="whitespace-pre-wrap break-words">
-          {message.content || (isStreaming ? '' : '...')}
-        </div>
-
-        {/* Images from plot tool */}
-        {message.images && message.images.length > 0 && (
-          <div className="mt-2 space-y-2">
-            {message.images.map((img, i) => (
-              <img
-                key={i}
-                src={img}
-                alt={`Plot ${i + 1}`}
-                className="max-w-full rounded border border-gray-700"
-              />
-            ))}
-          </div>
+        {/* Assistant accent bar */}
+        {!isUser && !isError && (
+          <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full bg-accent/30" />
         )}
 
-        {/* Tool trace (collapsible) */}
-        {message.trace && message.trace.length > 0 && (
-          <div className="mt-2">
-            <button
-              onClick={() => setTraceOpen(!traceOpen)}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300"
-            >
-              {traceOpen ? '\u25BE' : '\u25B8'} Used {message.trace.length} tool
-              {message.trace.length > 1 ? 's' : ''}
-            </button>
-            {traceOpen && (
-              <div className="mt-1 space-y-1">
-                {message.trace.map((t, i) => (
-                  <div key={i} className="rounded bg-gray-900/80 p-2 text-xs font-mono">
-                    <div className="text-blue-400">{t.tool}</div>
-                    <div className="mt-0.5 text-gray-500">
-                      Args: {JSON.stringify(t.args)}
-                    </div>
-                    <div className="mt-0.5 text-gray-400">
-                      Result:{' '}
-                      {t.result.length > 200
-                        ? t.result.slice(0, 200) + '...'
-                        : t.result}
-                    </div>
-                  </div>
-                ))}
-              </div>
+        <div className={`px-4 py-3 ${!isUser && !isError ? 'pl-5' : ''}`}>
+          {/* Role label */}
+          <div
+            className={`mb-1.5 flex items-center gap-2 ${
+              isUser ? 'text-white/60' : isError ? 'text-error/60' : 'text-ink-faint'
+            }`}
+          >
+            <span className="font-mono text-[9px] font-medium uppercase tracking-[0.15em]">
+              {isUser ? 'You' : 'Assistant'}
+            </span>
+            {isStreaming && (
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent animate-cursor" />
             )}
           </div>
-        )}
+
+          {/* Content */}
+          <div className="whitespace-pre-wrap break-words font-body text-[14px] leading-relaxed">
+            {message.content || (isStreaming ? '' : '...')}
+            {isStreaming && (
+              <span className="inline-block h-[1em] w-[2px] bg-accent ml-0.5 align-text-bottom animate-cursor" />
+            )}
+          </div>
+
+          {/* Images from plot tool */}
+          {message.images && message.images.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {message.images.map((img, i) => (
+                <img
+                  key={i}
+                  src={img}
+                  alt={`Plot ${i + 1}`}
+                  className="max-w-full rounded-sm border border-border shadow-sm"
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Tool trace (collapsible) */}
+          {message.trace && message.trace.length > 0 && (
+            <div className="mt-3">
+              <button
+                onClick={() => setTraceOpen(!traceOpen)}
+                className={`flex items-center gap-1.5 font-mono text-[10px] transition-colors ${
+                  isUser ? 'text-white/50 hover:text-white/80' : 'text-ink-faint hover:text-ink-muted'
+                }`}
+              >
+                <svg
+                  className={`h-2.5 w-2.5 transition-transform duration-200 ${traceOpen ? 'rotate-90' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+                {message.trace.length} tool call{message.trace.length > 1 ? 's' : ''}
+              </button>
+              {traceOpen && (
+                <div className="mt-2 space-y-1.5 animate-fade-in">
+                  {message.trace.map((t, i) => (
+                    <div
+                      key={i}
+                      className={`rounded-sm p-2.5 font-mono text-[11px] leading-relaxed ${
+                        isUser
+                          ? 'bg-white/10'
+                          : 'bg-paper-warm border border-border'
+                      }`}
+                    >
+                      <div className={isUser ? 'text-accent-light' : 'text-accent font-medium'}>
+                        {t.tool}
+                      </div>
+                      <div className={`mt-1 ${isUser ? 'text-white/40' : 'text-ink-faint'}`}>
+                        Args: {JSON.stringify(t.args)}
+                      </div>
+                      <div className={`mt-1 ${isUser ? 'text-white/60' : 'text-ink-muted'}`}>
+                        {t.result.length > 180
+                          ? t.result.slice(0, 180) + '...'
+                          : t.result}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

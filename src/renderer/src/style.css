@@ -1,1 +1,194 @@
 @import "tailwindcss";
+
+/* ── Academic Manuscript Theme ──
+   Light, refined, editorial. Warm ivory paper, deep indigo accents,
+   elegant serif typography, geometric decorative details.
+   ──────────────────────────────── */
+
+@theme {
+  /* Colors — warm, muted, sophisticated */
+  --color-paper: #FDFCF8;
+  --color-paper-warm: #F7F5F0;
+  --color-paper-alt: #F0EDE6;
+  --color-ink: #1A1D21;
+  --color-ink-soft: #3D4148;
+  --color-ink-muted: #6B6860;
+  --color-ink-faint: #A8A49C;
+  --color-accent: #1E3A5F;
+  --color-accent-light: #2D5A8A;
+  --color-accent-warm: #8B7355;
+  --color-accent-terracotta: #B85C38;
+  --color-surface: #FFFFFF;
+  --color-surface-warm: #FAF8F3;
+  --color-border: #E5E2DA;
+  --color-border-warm: #D9D5CC;
+  --color-border-dark: #C8C4BA;
+  --color-error: #9B2C2C;
+  --color-error-bg: #FEF2F2;
+  --color-error-border: #FECACA;
+  --color-success: #2F855A;
+  --color-success-bg: #F0FDF4;
+  --color-success-border: #BBF7D0;
+
+  /* Fonts */
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-body: "Source Serif 4", Georgia, serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+  /* Spacing tokens */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+}
+
+/* ── Global Base ───────────────────────────────────────── */
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-dark);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-faint);
+}
+
+/* ── Selection ─────────────────────────────────────────── */
+::selection {
+  background: rgba(30, 58, 95, 0.15);
+  color: var(--color-ink);
+}
+
+/* ── Animations ────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+.animate-cursor {
+  animation: cursor-blink 1s step-end infinite;
+}
+
+/* ── Typography Utilities ──────────────────────────────── */
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* ── Decorative Elements ───────────────────────────────── */
+.border-dashed-warm {
+  border-style: dashed;
+  border-color: var(--color-border-warm);
+}
+
+/* ── Paper texture overlay (subtle) ────────────────────── */
+.paper-texture::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.015;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+/* ── Input focus ring ──────────────────────────────────── */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--color-accent-light) !important;
+  box-shadow: 0 0 0 2px rgba(30, 58, 95, 0.08);
+}
+
+/* ── Button transitions ────────────────────────────────── */
+button {
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Code / Pre blocks ─────────────────────────────────── */
+pre, code {
+  font-family: var(--font-mono);
+}
