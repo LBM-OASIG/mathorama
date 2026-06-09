@@ -163,7 +163,21 @@ export default function ChatPanel(): JSX.Element {
 
 // ── Markdown Renderer ─────────────────────────────────────
 
+/** Convert non-dollar LaTeX delimiters to standard $$...$$ and $...$ */
+function preprocessLatex(text: string): string {
+  return text
+    // \ [ ... \ ] → $$ ... $$ (display)
+    .replace(/\\\[([\s\S]*?)\\\]/g, '$$\n$1\n$$')
+    // \( ... \) → $ ... $ (inline)
+    .replace(/\\\(([\s\S]*?)\\\)/g, '$$$1$$')
+    // \begin{equation}...\end{equation} → $$...$$
+    .replace(/\\begin\{equation\}([\s\S]*?)\\end\{equation\}/g, '$$\n$1\n$$')
+    // \begin{align}...\end{align} → $$...$$
+    .replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, '$$\n$1\n$$')
+}
+
 function MarkdownRenderer({ content, isUser }: { content: string; isUser: boolean }): JSX.Element {
+  const processed = preprocessLatex(content)
   const components: Components = {
     p: ({ children }) => (
       <p className="mb-2 last:mb-0 leading-[1.65]">{children}</p>
@@ -272,7 +286,7 @@ function MarkdownRenderer({ content, isUser }: { content: string; isUser: boolea
       rehypePlugins={[rehypeKatex]}
       components={components}
     >
-      {content}
+      {processed}
     </ReactMarkdown>
   )
 }
