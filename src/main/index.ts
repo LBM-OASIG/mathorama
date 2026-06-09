@@ -4,6 +4,7 @@ import { registerLLMHandlers, initializeDefaultProviders } from './llm/bridge'
 import { registerPythonHandlers } from './python/bridge'
 import { registerConfigHandlers } from './config/manager'
 import { registerAgentHandlers } from './agent/bridge'
+import { registerAgentManagerHandlers } from './agent/manager'
 import { registerConversationHandlers } from './conversations/bridge'
 
 function createWindow(): void {
@@ -33,6 +34,7 @@ app.whenReady().then(() => {
   registerPythonHandlers()
   registerConfigHandlers()
   registerAgentHandlers()
+  registerAgentManagerHandlers()
   registerConversationHandlers()
   initializeDefaultProviders()
   createWindow()

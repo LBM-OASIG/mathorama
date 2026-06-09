@@ -30,7 +30,9 @@ const api = {
   },
   agent: {
     run: (params: { agent: { name: string; provider: string; model: string; system_prompt: string; params: Record<string, unknown>; tools: string[] }; messages: Array<{ role: string; content: string }> }) =>
-      ipcRenderer.invoke('agent:run', params)
+      ipcRenderer.invoke('agent:run', params),
+    list: () => ipcRenderer.invoke('agent:list'),
+    save: (agents: unknown[]) => ipcRenderer.invoke('agent:save', agents)
   },
   onStreamToken: (callback: (token: string) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, token: string) => callback(token)
