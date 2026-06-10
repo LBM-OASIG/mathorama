@@ -24,7 +24,10 @@
 Mathorama 是一款将**大语言模型**与**Python 科学计算栈**（SymPy + NumPy + Matplotlib）深度融合的桌面端应用。用户用自然语言描述数学问题，AI 自动规划解题步骤、调用数学工具精确计算，并输出教科书级别的解题报告。
 
 > ✨ Mathorama 是基于 Deepseek-v4-flash 的 Vibe-Coding 项目，目前还是一个未完成的框架。
-> <img src="https://cdn.deepseek.com/logo.png?x-image-process=image%2Fresize%2Cw_828" alt="DeepSeek" width="120" />
+
+<div align="center">
+  <img src="https://cdn.deepseek.com/logo.png?x-image-process=image%2Fresize%2Cw_828" alt="DeepSeek" width="120" />
+</div>
 
 ---
 
