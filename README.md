@@ -21,9 +21,10 @@
 
 ## 概览
 
-Mathorama 是一款基于 Electron 的桌面应用，将**大语言模型**与**Python 科学计算栈**（SymPy + NumPy + Matplotlib）深度融合。用户用自然语言描述数学问题，AI 自动规划解题步骤、调用数学工具精确计算，并输出教科书级别的解题报告。
+Mathorama 是一款将**大语言模型**与**Python 科学计算栈**（SymPy + NumPy + Matplotlib）深度融合的桌面端应用。用户用自然语言描述数学问题，AI 自动规划解题步骤、调用数学工具精确计算，并输出教科书级别的解题报告。
 
-> ✨ **核心亮点**：LLM 负责推理和自然语言组织，Python 引擎负责精确计算，两者取长补短。
+> ✨ Mathorama 是基于 Deepseek-v4-flash 的 Vibe-Coding 项目，目前还是一个未完成的框架。
+> <img src="https://cdn.deepseek.com/logo.png?x-image-process=image%2Fresize%2Cw_828" alt="DeepSeek" width="120" />
 
 ---
 
@@ -70,13 +71,6 @@ npm run preview
 |--------|------|
 | 应用配置 | `Electron userData / config.json` |
 | 对话存储 | `Electron userData / conversations.json` |
-
----
-
-## 截图
-
-<!-- TODO: 添加应用截图 -->
-<!-- ![Mathorama 主界面](screenshots/main.png) -->
 
 ---
 
@@ -262,7 +256,7 @@ mathorama/
 
 ## 贡献
 
-欢迎提交 Issue 和 Pull Request。详见 [CONTRIBUTING.md](CONTRIBUTING.md)（如适用）。
+欢迎提交 Issue 和 Pull Request。
 
 ---
 
