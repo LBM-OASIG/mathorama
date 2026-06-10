@@ -31,18 +31,14 @@ Mathorama 是一款将**大语言模型**与**Python 科学计算栈**（SymPy +
 
 ---
 
-## 特性
+## 愿景
+我们希望构建一个通用的数学Agent平台.
+> 不只Vibe Coding，还有Vibe Math。
 
-| 特性 | 说明 |
-|------|------|
-| 🧠 **AI 解题** | 自然语言输入，自动规划步骤、调用工具、输出完整解题过程 |
-| 🔧 **6 种数学工具** | 数值计算、解方程、化简、求导、积分、函数绘图 |
-| 🤖 **多 Agent** | 内置 Math Tutor / General Assistant / Plot Artist，支持自定义 Agent |
-| 🔌 **多模型支持** | OpenAI / Anthropic / DeepSeek / Ollama 等兼容 API |
-| 📐 **公式渲染** | KaTeX 渲染 LaTeX，流式逐字输出，智能分组 |
-| 📊 **数学可视化** | Matplotlib 函数绘图，直接嵌入聊天 |
-| 🎨 **Academic Manuscript 主题** | 暖象牙白纸色 + 衬线字体，学术风格 UI |
-
+### 未来持续构建
+- Skills For Math , 以及 Mathorama 的 Skills 支持。
+- More Tools , 更多现代数学领域的工具支持。
+- 完整Agent框架，包括提示词工程和上下文工程。
 ---
 
 ## 快速开始
@@ -134,26 +130,16 @@ npm run preview
 | `integrate` | 积分（定/不定） | expression, variable, lower, upper |
 | `plot` | 函数绘图 → 返回 base64 PNG | expression, variable, xmin, xmax |
 
-### 跨模型适配器
+### 跨模型适配器（未完成）
 
-自动检测模型家族并适配参数差异：
+自动检测模型家族并适配参数差异。
 
 | 模型家族 | 适配行为 |
 |----------|----------|
-| `openai-standard` | GPT-4o 等，支持 temperature / top_p |
-| `openai-reasoning` | o1/o3 系列，使用 `max_completion_tokens` + `reasoning_effort` |
+| `openai-standard` | GPT 等，支持 temperature / top_p |
+| `openai-reasoning` | 使用 `max_completion_tokens` + `reasoning_effort` |
 | `anthropic` | Claude 系列，支持 `thinking` 块 |
 | `openai-compatible` | Ollama / vLLM / DeepSeek 等兼容 API |
-
-**DeepSeek 特殊适配**：
-- **DeepSeek-R1**：max_tokens 上限 64K（含 reasoning）
-- **DeepSeek-V4**：max_tokens 上限 384K
-
-### 流式渲染
-
-- LLM token 通过 IPC `agent:stream-token` 事件逐字传输
-- 智能分组：完整 `$$...$$` LaTeX 块一次显示，普通文本每 3 字符一刷
-- 15ms 刷新间隔，50ms 完成检测
 
 ---
 
