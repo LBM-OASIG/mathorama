@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./icon.png" alt="Mathorama" width="96" />
+  <img src="./icon.png" alt="Mathorama" width="128" />
 </div>
 
 # Mathorama — Math Agent Platform
