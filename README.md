@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="./icon.png" alt="Mathorama" width="96" />
+</div>
+
 # Mathorama — Math Agent Platform
 
 <div align="center">
