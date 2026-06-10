@@ -4,8 +4,6 @@ import { buildLLMParams } from './adapter'
 import type { AgentConfig } from './types'
 import type { LLMChatMessage } from '../llm/providers/types'
 
-const MAX_ITERATIONS = 10
-
 export interface ToolTrace {
   tool: string
   args: Record<string, unknown>
@@ -32,7 +30,10 @@ export async function runAgent(params: {
     ...params.messages.map(m => ({ role: m.role, content: m.content }))
   ]
 
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
+  // Run without iteration limit — the loop naturally terminates when
+  // the model returns a final answer (no tool_calls, not truncated).
+  // A 200-iteration safety net prevents runaway loops from buggy agents.
+  for (let i = 0; i < 200; i++) {
     const llmParams = buildLLMParams(params.agent, msgs, {
       stream: true,
       onToken: params.onToken,
@@ -83,7 +84,7 @@ export async function runAgent(params: {
   }
 
   return {
-    content: 'Maximum iterations reached without final answer.',
+    content: 'Maximum iterations (200) reached without final answer.',
     trace
   }
 }
