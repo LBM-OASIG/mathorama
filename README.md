@@ -1,5 +1,6 @@
 <div align="center">
   <img src="./icon.png" alt="Mathorama" width="128" />
+  <p><strong>中文</strong> | <a href="./README.en.md">English</a></p>
 </div>
 
 # Mathorama — Math Agent Platform
