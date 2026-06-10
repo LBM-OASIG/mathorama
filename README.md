@@ -12,7 +12,7 @@
 ![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3-3776AB?style=flat-square&logo=python&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+![License](https://img.shields.io/badge/license-GPLv3-blue?style=flat-square)
 
 **An LLM-powered AI math problem-solving desktop app — precise computation, clear presentation, interactive exploration**
 
@@ -256,4 +256,4 @@ Issues and Pull Requests are welcome.
 
 ## License
 
-[MIT](LICENSE)
+[GNU General Public License v3.0](LICENSE)

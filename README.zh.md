@@ -12,7 +12,7 @@
 ![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3-3776AB?style=flat-square&logo=python&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+![License](https://img.shields.io/badge/license-GPLv3-blue?style=flat-square)
 
 **LLM 驱动的 AI 数学解题桌面应用 — 精确计算，清晰展示，交互式探索**
 
@@ -252,4 +252,4 @@ mathorama/
 
 ## 许可证
 
-[MIT](LICENSE)
+[GNU General Public License v3.0](LICENSE)
